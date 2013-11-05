@@ -536,7 +536,7 @@ timeit <- function(expr,suppressResult=F,total.time=TRUE) {
 #' X <- matrix(rnorm(5000),nrow=50); max <- nrow(X); sums <- numeric(max)
 #' for (cc in 1:max) { 
 #'   sums[cc] <- sum(X[cc,])
-#'   wait(.1) # just so this trivial loop doesn't finish so quickly
+#'   wait(.05) # just so this trivial loop doesn't finish so quickly
 #'   loop.tracker(cc,max, sav.obj=sums, sav.fn="temp.rda", sav.freq=5);
 #'   if(cc==29) { warning("faked a crash at iteration 29!"); rm(sums); break }
 #' }
@@ -748,9 +748,9 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
-#' rep <- "http://cran.ma.imperial.ac.uk/" # OR: rep <- getOption("repos")
-#' search.cran("useful",rep)
-#' search.cran(c("hmm","markov","hidden"),repos=rep)
+#' repos <- "http://cran.ma.imperial.ac.uk/" # OR: repos <- getOption("repos")
+#' search.cran("useful",repos)
+#' search.cran(c("hmm","markov","hidden"),repos=repos)
 search.cran <- function(txt,repos="") {
   goty <- getOption("pkgType"); 
   if(repos=="") { repos <- getOption("repos") }
@@ -1400,9 +1400,9 @@ cor.with <- function(x,r=.5,preserve=FALSE,mn=NA,st=NA) {
 summarise.r.datasets <- function(filter=FALSE,types=c("data.frame","matrix"),all=FALSE,...) { 
   # eg., package = .packages(all.available = TRUE)
   if(all) {
-    ll <- unlist(strsplit((toHTML(data(package = .packages(all.available = TRUE)))),"\n"))
+    ll <- unlist(strsplit((toHTML(data(package = .packages(all.available = TRUE), envir = environment()))),"\n"))
   } else {
-    ll <- unlist(strsplit((toHTML(data(...))),"\n"))
+    ll <- unlist(strsplit((toHTML(data(..., envir = environment()))),"\n"))
   }
   ll <- ll[-grep("<",ll,fixed=T)]
   datasets <- ll[-grep(" ",ll,fixed=T)]
@@ -1716,9 +1716,9 @@ suck.bytes <- function(tot1,GB=TRUE) {
 #' @export
 #' @author Nicholas Cooper 
 #' @examples
-#' rep <- "http://cran.ma.imperial.ac.uk/"
-#' packages.loaded("NCmisc","reader",repos=rep)
-#' packages.loaded(c("bigmisc","nonsenseFailTxt"),repos=rep)
+#' repos <- "http://cran.ma.imperial.ac.uk/"
+#' packages.loaded("NCmisc","reader",repos=repos)
+#' packages.loaded(c("bigmisc","nonsenseFailTxt"),repos=repos)
 #' packages.loaded(c("bigmisc","nonsenseFailTxt"),cran.check=FALSE)
 packages.loaded <- function(pcks,...,cran.check=TRUE,repos=NULL) {
   more <- c(...); if(length(more)>0) { pcks <- c(pcks,paste(more)) }
@@ -1727,7 +1727,7 @@ packages.loaded <- function(pcks,...,cran.check=TRUE,repos=NULL) {
   answer <- (all(pcks %in% pkgset))
   if(is.null(repos)) { try(repos <- getOption("repos") ) }
   if(is.null(repos)) { repos <- "http://cran.ma.imperial.ac.uk/" }
-  print(repos)
+  #print(repos)
   if(!answer & cran.check) {
     check.exist <- search.cran(pcks,repos=repos)
     for(cc in 1:length(check.exist)) {
