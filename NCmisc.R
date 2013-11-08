@@ -1123,7 +1123,7 @@ prv <- function(...,counts=NULL) {
 #'  value can be reported each iteration, also printing the count index; if the list is
 #'  named the name will also appear, e.g, variable[count=1]. This list must be the same
 #'  length as varlist (and labels if not NULL), and each element [[i]] must contain as many values
-#'  as the original corresponding varlist[i] has dimensions
+#'  as the original corresponding varlist[i] has dimensions. The dimensions must result in a 1x1 scalar
 #' @seealso \code{\link{Dim}} 
 #' @export
 #' @examples
@@ -1704,7 +1704,7 @@ suck.bytes <- function(tot1,GB=TRUE) {
 #' functionality depending if another package is in use (but the other package is
 #' not part of 'depends' because it is not essential). Because 'require' cannot
 #' be used within functions submitted as part of a CRAN package.
-#' @param pcks character, a package name, or vector of names
+#' @param pcks character, a package name, or vector of names, if left blank will return all loaded
 #' @param ... further package names as character (same as entering via pcks, 
 #'  but avoids need for c() in pcks)
 #' @param cran.check logical, in the case at least one package is not found, whether
@@ -1720,10 +1720,12 @@ suck.bytes <- function(tot1,GB=TRUE) {
 #' packages.loaded("NCmisc","reader",repos=repos)
 #' packages.loaded(c("bigmisc","nonsenseFailTxt"),repos=repos)
 #' packages.loaded(c("bigmisc","nonsenseFailTxt"),cran.check=FALSE)
-packages.loaded <- function(pcks,...,cran.check=TRUE,repos=NULL) {
+#' packages.loaded() # no argument means all loaded packages are listed
+packages.loaded <- function(pcks="",...,cran.check=TRUE,repos=NULL) {
   more <- c(...); if(length(more)>0) { pcks <- c(pcks,paste(more)) }
   if(!is.character(pcks)) { stop("must enter package names as character strings") }
   pt <- "package:"; pkgset <- gsub(pt,"",search()[grep(pt,search())])
+  if(all(pcks=="")) { return(pkgset) }
   answer <- (all(pcks %in% pkgset))
   if(is.null(repos)) { try(repos <- getOption("repos") ) }
   if(is.null(repos)) { repos <- "http://cran.ma.imperial.ac.uk/" }
