@@ -1496,13 +1496,16 @@ exists.not.function <- function(x,ret.type=FALSE) {
 #' Dim(list(first="test",second=testvar,third=100:110))
 #' Dim(list(first="test",second=testvar,third=100:110),FALSE)
 Dim <- function(x,cat.lists=TRUE) {
+  max.dims <- 100
   rez <- NULL
   try(rez <- dim(x))
   if(!is.null(rez)) { return(dim(x)) }
   if(is(x)[1]=="list") { 
     out <- lapply(x,Dim) 
     if(cat.lists) {
-      out <- paste(out,collapse="; ")
+      if(length(out)>max.dims) { suf <- paste("... + ",length(out)-max.dims," more",sep="") } else { suf <- "" }
+      out <- paste(out[1:min(max.dims,length(out))],collapse="; ")
+      out <- paste(out,suf)
     }
   } else { out <- length(x) }
   return(out)  
