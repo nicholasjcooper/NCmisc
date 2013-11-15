@@ -58,7 +58,7 @@ rox.args <- function(txt,PRE=T,POST=T,author='Nicholas Cooper') {
 
 require(roxygen2)
 
-to.del <- make.package("NCmisc",dir)
+to.del <- make.package("reader",dir)
 
 
 #R CMD build NCmisc

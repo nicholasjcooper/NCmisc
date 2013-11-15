@@ -154,7 +154,7 @@ check.linux.install <- function(cmd=c("plink","perl","sed")) {
 
 
 #internal
-head2 <- function(X,...) { if(length(dim(X))==2) { prv.large(X,...) } else { print(utils::head(X,...)) } }
+head2 <- function(X,...) { if(length(dim(X))==2) { prv.large(X,...,warn=F) } else { print(utils::head(X,...)) } }
 
 
 
@@ -945,25 +945,39 @@ get.ext <- function(fn) {
 #' @param clab label to describe the data columns
 #' @param rownums logical, whether to display rownumbers or ignore them
 #' @param ret logical, whether to return the result as a formatted object, or just print to console
+#' @param warn logical, whether to warn if the object type is not supported
 #' @export
 #' @examples
 #' mat <- matrix(rnorm(1000),nrow=50)
 #' rownames(mat) <- paste("ID",1:50,sep="")
 #' colnames(mat) <- paste("Var",1:20,sep="")
 #' prv.large(mat)
-#' prv.large(mat,rows=9,cols=4,digits=1,rL="#",rlab="samples",clab="variables")
-prv.large <- function(largeMat,rows=3,cols=2,digits=4,rL="Row#",rlab="rownames",clab="colnames",rownums=T,ret=FALSE) 
+#' prv.large(mat,rows=9,cols=4,digits=1,rlab="samples",clab="variables",rownums=FALSE)
+prv.large <- function(largeMat,rows=3,cols=2,digits=4,rL="Row#",
+                      rlab="rownames",clab="colnames",rownums=T,ret=FALSE,warn=TRUE) 
 {
   # nicely print a large matrix without overloading the output space
   # can return result as lines of text instead of printing to screen (for printing to file)
   # allows customization of row and column labels
   # only worth using with data that has row/col names
+  # DEFINE INTERNAL FUNCTIONS #
+  pad <- function(X,L) { X<-paste(X); if(is.character(X)) { paste(spc(L-nchar(X)),X,sep="") } else { stop(X) } }
+  RND <- function(X,...) { if (is.numeric(X)) { round(X,...) } else { X }}
+  #
   if(packages.loaded("bigmemory",cran.check=F)) { TF <- !do.call("is.big.matrix",args=list(largeMat)) } else { TF <- TRUE }
-  if(!is.data.frame(largeMat) & !is.matrix(largeMat) & TF ) { warning("unrecognised object type, using 'head'"); return(head(largeMat)) }
+  if(!is.data.frame(largeMat) & !is.matrix(largeMat) & TF ) { 
+    if(warn) { warning("unsupported object type, using 'head'") }
+    print(head(largeMat))
+    return()
+  }
   if(length(dim(largeMat))!=2) { stop("expected largeMat to have 2 dimensions") }
   nC <- ncol(largeMat); nR <- nrow(largeMat); 
-  if(nC<2 | nR<3) { warning("prv.large only works for matrices with dims >= c(3,2), passed to print(head())")
-                    print(head(largeMat,rows+1)); return(NULL) }
+  if(nC<2 | nR<3) { 
+    if(warn) {
+      warning("prv.large only works for matrices with dims >= c(3,2), passed to print(head())")
+    }
+    print(head(largeMat,rows+1)); return(NULL) 
+  }
   rows <- min(max(1,rows),nR); cols <- min(max(1,cols),nC)
   cN <- colnames(largeMat); rN <- rownames(largeMat)
   if(is.null(cN)) { cN <- paste(1:ncol(largeMat)); clab <- "col#" }
@@ -980,8 +994,17 @@ prv.large <- function(largeMat,rows=3,cols=2,digits=4,rL="Row#",rlab="rownames",
   } else { max.before.dp <- 6 }
   hdr[hdr<7] <- 7; hdr[hdr<(digits+max.before.dp)] <- (digits+max.before.dp)
   idln <- max(nchar(rlab),nchar(rN[c(1:rows,nR)]))
-  pad <- function(X,L) { X<-paste(X); if(is.character(X)) { paste(spc(L-nchar(X)),X,sep="") } else { stop(X) } }
-  RND <- function(X,...) { if (is.numeric(X)) { round(X,...) } else { X }}
+  long.text.filt <- T
+  if(long.text.filt) {
+    # look ahead for lengths of textdata > nchar(colnames()) which wouldn't get picked up elsewhere
+    dat.cols <- c(1:cols,nC); varln <- a1 <- b1 <- numeric(length(dat.cols))
+    for(cc in 1:length(dat.cols)) {
+      a1[cc] <- nchar(cN[dat.cols[cc]]); b1[cc] <- max(nchar(paste(RND(largeMat[c(1:rows,nR),dat.cols[cc]],digits))))
+      varln[cc] <- max(a1[cc],b1[cc])
+    }
+    #prv(a1,b1,dat.cols,hdr,varln)
+    hdr[varln>hdr] <- varln[varln>hdr]
+  }
   if(!ret) { cat("\n"); cat(spc(rown),spc(idln),clab,"\n") }
   dotz <- "  ...  "; dotzh <- " ..... "; dotzn <- "..."
   # make adjustments if matrix is small enough to display all rows/cols
@@ -1100,6 +1123,86 @@ prv <- function(...,counts=NULL) {
 }
 
 
+# internal function for print.large
+display.var <- function(val,label,cnts=NULL) {
+  if(is(cnts)[1]=="list") {
+    ## if vars to debug have a counter, update the value and label with count(s)
+    if(is(val)[1]=="list") { 
+      for (dd in 1:length(cnts)) {
+        val <- val[[ cnts[[dd]] ]] 
+        if(!is.null(names(cnts))) { 
+          label <- paste(label,"[[",names(cnts)[dd],"=",cnts[[dd]],"]]",sep="") 
+        } else {
+          label <- paste(label,"[[",cnts[[dd]],"]]",sep="")
+        }
+      }
+    } else {
+      #val <- val[cnts[[dd]] ]
+      #preview(c("val","cnts"))
+      if(length(Dim(val))!=length(cnts)) {
+        val <- val ; warning("counts did not match dimensions")
+      } else {
+        arg.list <- vector("list",1+length(cnts)); arg.list[[1]] <- val
+        arg.list[2:(1+length(cnts))] <- cnts
+        val <- do.call("[",args=arg.list)
+        if(!is.null(names(cnts))) { 
+          label <- paste(label,"[",
+                         paste(paste(names(cnts),"=",cnts,sep=""),collapse=","),"]",sep="") 
+        } else {
+          label <- paste(label,"[",paste(cnts,collapse=","),"]",sep="")
+        }
+      }
+    }
+  } else {
+    #counts not a list
+  }
+  ## display appropriately according to datatype ##
+  typ <- is(val)[1]
+  if(is.function(val)) {
+    cat(label,": function",sep=""); return(invisible())
+  }
+  if(packages.loaded("bigmemory",cran.check=F)) {
+    if(typ=="big.matrix") {
+      if(exists("prv.big.matrix",mode="function")) {
+        do.call("prv.big.matrix",args=list(val,name=label))
+      } else {
+        warning("preview() needs the package bigmisc to display a big.matrix object")
+      }
+      return(invisible())
+    }
+  }
+  dv <- Dim(val)
+  if(is.numeric(dv)) { if(all(dv==1)) {
+    cat(label,": ",val," (",typ,", ",paste(Dim(val),collapse="*"),")",sep=""); return(invisible())
+  } }
+  if(is(val)[1]=="list") {
+    cat(label," (",typ,", ",paste(Dim(val),collapse="*"),")\n",sep=""); print(headl(val)); return(invisible())
+  } else {
+    #print(Dim(val))
+    if(!is.null(dim(val))) {
+      cat(label," (",typ,", ",paste(Dim(val),collapse="*"),")\n",sep="");
+      if(length(dim(val))==2) {
+        if(ncol(val)>=2 & nrow(val)>=3) {
+          prv.large(val,warn=F)
+        } else {
+          print(head(val))
+          if(nrow(val)>6) {
+            # if any part not displayed, then indicate using ...
+            cat(if(!is.null(rownames(val))) { "  ...    " } else { "" },rep("  ..  ",ncol(val)),"\n")
+          }
+        }
+      } else {
+        print(c(head(val),if(length(val)>6) { (" ...") } else { NULL }))  # e.g, for a table
+      }
+      return(invisible())
+    } else {
+      cat(label," (",typ,", ",paste(Dim(val),collapse="*"),") [head]:\n",sep="")
+      print(head(val))
+      return(invisible())
+    }
+  }
+}
+
 
 #' Output variable states within functions during testing/debugging
 #'
@@ -1159,81 +1262,7 @@ preview <- function(varlist,labels=NULL,counts=NULL) {
   if(is.list(counts)) {  if(!all(sapply(counts,length)==length(varlist))) { 
     counts <- NULL } } else { if(length(counts)==length(varlist)) { counts <- list(counts) } else { counts <- NULL } }
   #val <- vector("list",length(lab))
-  display.var <- function(val,label,cnts=NULL) {
-    if(is(cnts)[1]=="list") {
-      ## if vars to debug have a counter, update the value and label with count(s)
-      if(is(val)[1]=="list") { 
-        for (dd in 1:length(cnts)) {
-          val <- val[[ cnts[[dd]] ]] 
-          if(!is.null(names(cnts))) { 
-            label <- paste(label,"[[",names(cnts)[dd],"=",cnts[[dd]],"]]",sep="") 
-          } else {
-            label <- paste(label,"[[",cnts[[dd]],"]]",sep="")
-          }
-        }
-      } else {
-        #val <- val[cnts[[dd]] ]
-        #preview(c("val","cnts"))
-        if(length(Dim(val))!=length(cnts)) {
-          val <- val ; warning("counts did not match dimensions")
-        } else {
-          arg.list <- vector("list",1+length(cnts)); arg.list[[1]] <- val
-          arg.list[2:(1+length(cnts))] <- cnts
-          val <- do.call("[",args=arg.list)
-          if(!is.null(names(cnts))) { 
-            label <- paste(label,"[",
-                           paste(paste(names(cnts),"=",cnts,sep=""),collapse=","),"]",sep="") 
-          } else {
-            label <- paste(label,"[",paste(cnts,collapse=","),"]",sep="")
-          }
-        }
-      }
-    } else {
-      #counts not a list
-    }
-    ## display appropriately according to datatype ##
-    typ <- is(val)[1]
-    if(is.function(val)) {
-      cat(label,": function",sep=""); return(invisible())
-    }
-    if(packages.loaded("bigmemory",cran.check=F)) {
-      if(typ=="big.matrix") {
-        if(exists("prv.big.matrix",mode="function")) {
-          do.call("prv.big.matrix",args=list(val,name=label))
-          return(invisible())
-        } else {
-          warning("preview() needs the package bigmisc to display a big.matrix object")
-        }
-      }
-    }
-    if(length(unlist(val))==1) {
-      cat(label,": ",val," (",typ,", ",paste(Dim(val),collapse="*"),")",sep=""); return(invisible())
-    } 
-    
-    if(is(val)[1]=="list") {
-      cat(label," (",typ,", ",paste(Dim(val),collapse="*"),")\n",sep=""); print(headl(val)); return(invisible())
-    } else {
-      #print(Dim(val))
-      if(!is.null(dim(val))) {
-        cat(label," (",typ,", ",paste(Dim(val),collapse="*"),")\n",sep="");
-        if(length(dim(val))==2) {
-          if(ncol(val)>=2 & nrow(val)>=3) {
-            prv.large(val)
-          } else {
-            print(head(val))
-            cat(if(!is.null(rownames(val))) { "  ...    " } else { "" },rep("  ..  ",ncol(val)),"\n")
-          }
-        } else {
-          print(c(head(val),if(length(val)>6) { (" ...") } else { NULL }))  # e.g, for a table
-        }
-        return(invisible())
-      } else {
-        cat(label," (",typ,", ",paste(Dim(val),collapse="*"),") [head]:\n",sep="")
-        print(head(val))
-        return(invisible())
-      }
-    }
-  }
+  
   ## if data not entered with a label, or as a string (not including prv() converted calls)
   if(!is.character(varlist) | !is.null(labels)) {
     if(is.null(labels) | ((length(labels)!=1) & (length(varlist)!=length(labels)))) {
