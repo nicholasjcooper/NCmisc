@@ -1,7 +1,9 @@
 dir <- "/home/ncooper/cransubmission/"
+require(NCmisc)
+require(reader)
 
 make.package <- function(pkg,dir,dscr=NULL,pkg.rd=NULL,int.rd=NULL) {
-  require(NCmisc)
+
   cur <- getwd()
   setwd(dir)
   must.use.package("roxygen2")
@@ -58,11 +60,13 @@ rox.args <- function(txt,PRE=T,POST=T,author='Nicholas Cooper') {
 
 require(roxygen2)
 
-to.del <- make.package("reader",dir)
+pck <- parse.args(arg.list=commandArgs(),coms="P",def="NCmisc",list.out=T,verbose=F)
+
+to.del <- make.package(pck$P,dir)
 
 
 #R CMD build NCmisc
-#R CMD check NCmisc_1.0.tar.gz
+#R CMD check NCmisc_1.1.tar.gz --as-cran
 #R CMD INSTALL NCmisc_1.1.tar.gz 
 
 
