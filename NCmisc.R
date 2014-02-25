@@ -1086,7 +1086,7 @@ Substitute <- function(x=NULL,...) {
 #' Output variable states within functions/loops during testing/debugging
 #'
 #' Same as preview but no labels command, and input is without quotes
-#' and must be plain variable names of existing variables (no indices, args, etc)
+#' and should be plain variable names of existing variables (no indices, args, etc)
 #' A versatile function to compactly display most common R objects. Will
 #' return the object name, type, dimension, and a compact representation of
 #' object contents, for instance using prv.large() to display matrices,
@@ -1098,7 +1098,8 @@ Substitute <- function(x=NULL,...) {
 #' of compact and informative variable state information, e.g, variable name, value,
 #' datatype and dimension. Can also specify array or list elements, or custom labels.
 #' prv() is the same as preview() except it can take objects without using double quotes
-#' and has no 'labels' command (and doesn't need one).
+#' and has no 'labels' command (and doesn't need one). If expressions are entered rather
+#' than variable names, then prv() will attempt to pass the arguments to preview().
 #' @param ... series of variable(s) to report, separated by commas, which will trigger
 #'  automatic labelling of the variable name
 #' @param counts a list of array index values; so if calling during a counting loop, the
@@ -1117,8 +1118,18 @@ Substitute <- function(x=NULL,...) {
 #' testvar5 <- list(first="test",second=testvar4,third=100:110)
 #' preview("testvar1"); prv(testvar1)
 #' prv(testvar1,testvar2,testvar3,testvar4)
+#' prv(matrix(rnorm(100),nrow=25)) # expression sent to preview() with no label
+#' prv(193) # fails as there are no object names involved
 prv <- function(...,counts=NULL) {
-  varlist <- Substitute(...)
+  options(warn=2)
+  txt <- (tryCatch(varlist <- Substitute(...), error = function(e) e))
+  options(warn=0)
+  if(is(txt)[1]=="simpleError") { 
+    #warning("not a function name")
+    varlist <- list(...)
+    sapply(varlist,preview)
+    return(NULL)
+  }
   return(preview(varlist,labels=NULL,counts=counts))
 }
 
