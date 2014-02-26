@@ -690,7 +690,7 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
   # to force their version of a function with a duplicate name
   if(!bioC) { 
     repos <- getOption("repos")
-    if(repos=="@CRAN@") { repos <- "http://cran.ma.imperial.ac.uk/" }
+    if(any(repos=="@CRAN@")) { repos <- "http://cran.ma.imperial.ac.uk/" }
     if(avail) {
       goty <- getOption("pkgType"); 
       av.pk <- available.packages(type=goty,
