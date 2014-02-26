@@ -1,7 +1,11 @@
-
-
-
-
+###NAMESPACE ADDITIONS###
+# Depends: R (>= 2.10), grDevices, graphics, stats, utils
+# Imports: tools, proftools
+# Suggests:
+# importFrom(proftools, readProfileData, flatProfile)
+# importFrom(tools, toHTML)
+# import(grDevices, graphics, stats, utils)
+###END NAMESPACE###
 
 #' Return up to 22 distinct colours.
 #' 
@@ -441,8 +445,8 @@ estimate.memory <- function(dat)
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
 #' wait(.5,silent=FALSE) # wait 0.5 seconds
-#' wait(0.001, "m")
-#' wait(0.0001, "Hours", silent=FALSE)
+#' wait(0.01, "m")
+#' wait(0.0002, "Hours", silent=FALSE)
 wait <- function(dur,unit="s",silent=TRUE) {
   ## do nothing for a period of time
   if(!is.numeric(dur)) { stop("dur must be a number") }
@@ -479,12 +483,13 @@ wait <- function(dur,unit="s",silent=TRUE) {
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
-#' timeit(wait(0.1,"s") ,total.time=TRUE)
-#' timeit(wait(0.1,"s") ,total.time=FALSE)
+#' # this function writes and removes a temporary file
+#' # run only if ok to do this in your working directory
+#' #not run# timeit(wait(0.1,"s") ,total.time=TRUE)
+#' #not run# timeit(wait(0.1,"s") ,total.time=FALSE)
 timeit <- function(expr,suppressResult=F,total.time=TRUE) {
   # function to measure in detail which function calls take the most time
   # during the evaluation of an expression. NB: will error with use of a trivial/instant expression
-  require("proftools")
   tf <- "Rproftemp.out"
   Rprof("Rproftemp.out")
   #do the stuff
@@ -706,15 +711,15 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
         detach(name=fp,character.only=T)
       }
     }
-    checklib <- function(package,character.only=F,warn.conflicts=T,quietly=F) { 
+    checklib <- function(package,character.only=FALSE,warn.conflicts=TRUE,quietly=FALSE) { 
       do.call("require",args=list(package=package,character.only=character.only,
                              warn.conflicts=warn.conflicts,quietly=quietly)) 
     }
-    got1 <- suppressWarnings(checklib(nxt.pck,character.only=T,warn.conflicts=F))
+    got1 <- suppressWarnings(checklib(nxt.pck,character.only=TRUE,warn.conflicts=FALSE))
     if(!got1) {
       if(ask) {
         # ask whether to install a package
-        ans <- select.list(c("yes","no"),"yes",F,paste("ok to install",nxt.pck," (required)?"))
+        ans <- select.list(c("yes","no"),"yes",FALSE,paste("ok to install",nxt.pck," (required)?"))
       } else { 
         ans <- "yes" 
       }
@@ -723,10 +728,10 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
           biocLite <- function(x) { print("please load biocLite function from http://bioconductor.org/biocLite.R") }
           source("http://bioconductor.org/biocLite.R") # biocLite() should now be replaced
           biocLite(nxt.pck)
-          suppressWarnings(checklib(nxt.pck,character.only=T,warn.conflicts=F,quietly=quietly))
+          suppressWarnings(checklib(nxt.pck,character.only=TRUE,warn.conflicts=FALSE,quietly=quietly))
         } else {
-          install.packages(nxt.pck,repos=repos); 
-          suppressWarnings(checklib(nxt.pck,character.only=T,warn.conflicts=F,quietly=quietly)) 
+          install.packages(nxt.pck,repos=repos,dependencies=TRUE); 
+          suppressWarnings(checklib(nxt.pck,character.only=TRUE,warn.conflicts=FALSE,quietly=quietly)) 
         }
       } else {
         warning("please manually install package ",nxt.pck," to continue")

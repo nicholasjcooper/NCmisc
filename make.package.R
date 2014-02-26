@@ -3,7 +3,6 @@ require(NCmisc)
 require(reader)
 
 make.package <- function(pkg,dir,dscr=NULL,pkg.rd=NULL,int.rd=NULL) {
-
   cur <- getwd()
   setwd(dir)
   must.use.package("roxygen2")
@@ -35,6 +34,12 @@ make.package <- function(pkg,dir,dscr=NULL,pkg.rd=NULL,int.rd=NULL) {
     }
     file.copy(int.rd, dest.fn, overwrite = T)
   }
+  ns.to.add <- parse.namespace.header(paste(pkg,".R",sep=""))
+  if(length(ns.to.add)>0) {
+    ns.fn <- cat.path(pkg,"NAMESPACE")
+    ns.pre <- readLines(ns.fn)
+    writeLines(unique(c(ns.pre,ns.to.add)),con=ns.fn)
+  }
   setwd(cur)
   return(del.fn)
 }
@@ -57,6 +62,25 @@ rox.args <- function(txt,PRE=T,POST=T,author='Nicholas Cooper') {
   if(POST) { cat(post) }
 }
 
+parse.namespace.header <- function(Rfile) {
+  all.lines <- readLines(Rfile)
+  n.poss <- grep("NAMESPACE",all.lines)
+  s.poss <- grep("ADDITIONS",all.lines)
+  e.poss <- grep("END",all.lines)
+  e.pos <- e.poss[e.poss %in% n.poss]
+  s.pos <- s.poss[s.poss %in% n.poss]
+  if(length(e.pos)==1 & length(s.pos)==1 & (s.pos<e.pos)) {
+    ns.lines <- all.lines[s.pos:e.pos]
+    iflines <- rmv.spc(rmv.spc(ns.lines[grep("importFrom(",ns.lines,fixed=T)],char="#"))
+    ilines <- rmv.spc(rmv.spc(ns.lines[grep("import(",ns.lines,fixed=T)],char="#"))
+    to.add.lines <- c(ilines,iflines)
+    cat("found",length(to.add.lines),"lines to add to namespace file from header of: ",Rfile,"\n")
+  } else {
+    cat("no valid imports/additions to namespace file found in: ",Rfile,"\n")
+    to.add.lines <- NULL
+  }
+  return(to.add.lines)
+}
 
 require(roxygen2)
 
