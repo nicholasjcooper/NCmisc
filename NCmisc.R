@@ -444,9 +444,9 @@ estimate.memory <- function(dat)
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
-#' wait(.5,silent=FALSE) # wait 0.5 seconds
-#' wait(0.01, "m")
-#' wait(0.0002, "Hours", silent=FALSE)
+#' wait(.25,silent=FALSE) # wait 0.25 seconds
+#' wait(0.005, "m")
+#' wait(0.0001, "Hours", silent=FALSE)
 wait <- function(dur,unit="s",silent=TRUE) {
   ## do nothing for a period of time
   if(!is.numeric(dur)) { stop("dur must be a number") }
@@ -1243,6 +1243,14 @@ display.var <- function(val,label,cnts=NULL) {
 #'  named the name will also appear, e.g, variable[count=1]. This list must be the same
 #'  length as varlist (and labels if not NULL), and each element [[i]] must contain as many values
 #'  as the original corresponding varlist[i] has dimensions. The dimensions must result in a 1x1 scalar
+#' @param assume.char usually 'varlist' is a character vector of variable names, but in the case
+#'  that it is actually a character variable, using assume.char=TRUE will ensure that it will be assumed
+#'  the character variable is the object to preview, rather than a list of variable names. So long
+#'  as none of the values are found to be variable names in the global environment. preview() can
+#'  also find variables in local environments, and if this is where the target variable lies, it is
+#'  best to use assume.char=FALSE, otherwise the search for alternative environments might not happen.
+#'  Note that in most cases the automatic detection of the input should understand what you want, regardless
+#'  of the value of assume.char.
 #' @seealso \code{\link{Dim}} 
 #' @export
 #' @examples
@@ -1262,9 +1270,18 @@ display.var <- function(val,label,cnts=NULL) {
 #'  for (dd in 1:4) { preview("testvar4",counts=list(cc,dd)) }}
 #'
 #' for (dd in 1:3) { preview("testvar5",counts=list(dd=dd)) }
-preview <- function(varlist,labels=NULL,counts=NULL) {
+preview <- function(varlist,labels=NULL,counts=NULL,assume.char=FALSE) {
   ## for debugging, simplify code to print vars you are checking
   lab <- varlist
+  if(is.character(varlist) & (length(labels)<length(varlist))) {
+    if(assume.char | length(varlist)>10) {
+      if(!any(varlist %in% ls())) {
+        unknown.variable <- varlist
+        preview("unknown.variable",labels=labels,counts=counts)
+        return(invisible(NULL))
+      }
+    }
+  } 
   if(is.character(varlist)) {
     t1 <- grep("[",varlist,fixed=T)
     t2 <- grep("(",varlist,fixed=T)
@@ -1557,6 +1574,111 @@ Dim <- function(x,cat.lists=TRUE) {
 }
 
 
+#' Force argument to be a numeric type with length one
+#'
+#' Sometimes arguments must be numeric, scalar and within a certain range.
+#' Rather than using many if statements, this will do everything possible to 
+#' coerce input to a scalar, failing that will replace with a default value.
+#' Can also provide a maximum and minimum range that the result must lie within.
+#' 
+#' @param x the object to ensure is a scalar
+#' @param default the value to revert to if the format of x is illegal
+#' @param min a lower bound for the output, anything below this is set to min
+#' @param max an upper bound for the output, anything above this is set to max
+#' @seealso \code{\link{force.percentage}}
+#' @return the object x if already legal, first element if a vector, the min or
+#'  max value if x is outside the specified bounds, or the value of default otherwise
+#' @export
+#' @examples
+#' force.scalar(1.5)
+#' force.scalar(NULL,default=.5)
+#' force.scalar(NA,default=.4,min=5,max=10) # default is outside range!
+#' force.scalar(rnorm(1000))
+#' force.scalar(101,max=50)
+#' force.scalar(list(0.4,1,2,3,4,"test"))
+#' force.scalar(data.frame(test=c(1,2,3),name=c("test","me","few")))
+#' force.scalar(Inf)
+force.scalar <- function(x,default=1, min=-10^10, max=10^10) {
+  if(is.list(x)) { x <- unlist(x) }
+  if(!is.numeric(default)) { default <- mean(c(min[1],max[1]),na.rm=T) ; warning("bad default, reverting to max,min mean") }
+  if(length(Dim(default))!=1) { default <- mean(c(min[1],max[1]),na.rm=T) ; warning("bad default, reverting to max,min mean") }
+  if(length(x)<1) { x <- default }
+  if(length(Dim(x))!=1) { x <- default }
+  x <- suppressWarnings(as.numeric(x[1]))
+  if(!is.numeric(x)) { x <- default }
+  if(is.na(x)) { x <- default }
+  if(x<min) { x <- min }
+  if(x>max) { x <- max }
+  return(x)
+}
+
+
+#' Force argument to be a percentage with length one
+#'
+#' Sometimes it is nice to be able to take a percentage as an argument and not
+#' have to specify whether it should be entered as a number between 0 and 100, 
+#' e.g, 50 = 50%, or as a decimal between 0 and 1, e.g, 0.5 = 50%. Anything greater
+#' than 1 and less than 100 will be divided by 100. Anything outside 0,100 will be
+#' set to 0,100 respectively.
+#' 
+#' @param x the object to ensure is a oercentage
+#' @param default the value to revert to if the format of x is illegal
+#' @seealso \code{\link{force.scalar}}
+#' @return the object x if already legal, first element if a vector, the min or
+#'  max value if x is outside the specified bounds, or the value of default otherwise
+#' @export
+#' @examples
+#' # create variables of different types to show output styles #
+#' force.percentage(45)
+#' force.percentage(450)
+#' force.percentage(.45)
+#' force.percentage(-45)
+#' force.percentage("twenty")
+#' force.percentage(NA,default=0.25)
+force.percentage <- function(x,default=.5) {
+  x <- force.scalar(x,default=default, min=0,max=100)
+  while(x>1) { x <- x/100 }
+  return(x)
+}
+
+
+#' Create fake text for testing purposes
+#' 
+#' Returns randomized input as if reading lines from a file, like 'readLines()'
+#' Can be used to test i/o functions, robustness.
+#' 
+#' @param max.lines maxmimum number of fake lines to read
+#' @param max.chars maximum number of characters per line
+#' @param pc.space percentage of randomly generated characters that should be a delimiter
+#' @param delim what should the simulated delimiter be, e.g, a space, comma etc. If you wish not
+#'  to include such either set the delimiter as "", or set pc.space=0.
+#' @param can.null whether with probability 1/max.lines to return NULL instead of any lines of text,
+#'  which simulates an empty file, which for testing purposes you may want to be able to handle
+#' @return a vector of character entries up 'max.chars' long, or sometimes only NULL if can.null=TRUE
+#' @export
+#' @author Nicholas Cooper
+#' @examples
+#' fakeLines() # should produce between zero and ten lines of random text, 35% of which are spaces
+fakeLines <- function(max.lines=10,max.chars=100,pc.space=.35,delim=" ",can.null=TRUE) {
+  all.char <- "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!$%&*()_+-=;'#,./<>?:@~{}[]| "
+  ncs <- nchar(all.char)
+  pct <- force.percentage(pc.space,default=.35)
+  if(pct<=0) { wantx <- 0 } else { wantx <- ncs/((1/pct)-1) }
+  all.chars <- c(strsplit(all.char,"")[[1]],rep(delim,times=round(wantx)))
+  nlines <- sample(max.lines,1)
+  txt <- NULL
+  if(!can.null | nlines!=max.lines){
+    for(cc in 1:nlines) {
+      nc <- sample(max.chars,1)
+      lineind <- sample(length(all.chars),size=nc,replace=T)
+      charz <- paste(all.chars[lineind],collapse="",sep="")
+      txt <- c(txt,charz)
+    }
+  } else { txt <- c() }
+  return(txt)
+}
+
+
 
 #' Monitor CPU, RAM and Processes
 #' 
@@ -1581,8 +1703,8 @@ Dim <- function(x,cat.lists=TRUE) {
 #' @export
 #' @author Nicholas Cooper
 #' @examples
-#' top()
-#' top(Table=TRUE,proc=5)
+#' # not run #  top()
+#' # not run #  top(Table=TRUE,proc=5)
 top <- function(CPU=!Table,RAM=!Table,Table=FALSE,procs=20,mem.key=NULL,cpu.key=NULL) {
   if(!RAM & !CPU & !Table) { warning("Deselected all options, null will be returned"); return(NULL) }
   if(!check.linux.install("top")) {
@@ -1594,7 +1716,9 @@ top <- function(CPU=!Table,RAM=!Table,Table=FALSE,procs=20,mem.key=NULL,cpu.key=
     # MAC OS X
     txt <- tryCatch(system("top -l 1",intern=T), error = function(e) e)
     if(length(txt)==0) { warning("command failed"); return(NULL) }
+    if(!is.character(txt)) { warning("command failed"); return(NULL) }
     dtt <- divide.top.txt(txt)
+    if(!is.list(dtt) | any(is.na(dtt)) ) { warning("unexpected output from top command"); return(NULL) }
     parz <- dtt$table; headr <- dtt$header
     if(!is.character(mem.key)) { mem.key <- "physmem" }
     if(RAM) { ram.gb.list <- suck.mem(headr,key=mem.key) }
@@ -1603,7 +1727,9 @@ top <- function(CPU=!Table,RAM=!Table,Table=FALSE,procs=20,mem.key=NULL,cpu.key=
     ## LINUX
     txt <- tryCatch(system("top -n 1 -b",intern=T), error = function(e) e)
     if(length(txt)==0) { warning("command failed"); return(NULL) }
+    if(!is.character(txt)) { warning("command failed"); return(NULL) }
     dtt <- divide.top.txt(txt)
+    if(!is.list(dtt) | any(is.na(dtt)) ) { warning("unexpected output from top command"); return(NULL) }
     parz <- dtt$table; headr <- dtt$header
     if(!is.character(mem.key)) { mem.key <- "mem" }
     if(RAM) { ram.gb.list <- suck.mem(headr,key=mem.key) }
@@ -1611,14 +1737,20 @@ top <- function(CPU=!Table,RAM=!Table,Table=FALSE,procs=20,mem.key=NULL,cpu.key=
   if(!is.character(cpu.key)) { cpu.key <- "cpu" }
   if(CPU) { cpu.pc.list <- suck.cpu(headr,key=cpu.key) }
   if(Table) {
-    tab <- make.top.tab(parz)
+    tab <- make.top.tab(parz); if(all(is.null(tab))) { return(NULL) }
     mem.col <- grep("mem",colnames(tab),ignore.case=T)[1]
     if(is.na(mem.col)) { mem.col <- grep("RSIZE",colnames(tab),ignore.case=T)[1] }
     cpu.col <- grep("cpu",colnames(tab),ignore.case=T)[1]
-    tab <- tab[rev(order(tab[,mem.col])),]
-    tab <- tab[rev(order(tab[,cpu.col])),];     tab <- tab[rev(order(tab[,mem.col])),]
+    if(is.na(mem.col) | (is.na(mem.col))) {
+      warning("did not find 'mem', 'RSIZE' or 'CPU' entries in 'top' output")
+    } else {
+      tab <- tab[rev(order(tab[,mem.col])),]
+      tab <- tab[rev(order(tab[,cpu.col])),]
+      tab <- tab[rev(order(tab[,mem.col])),]
+    }
     if(is.na(as.numeric(procs))) { procs <- nrow(tab) } else { procs <- round(procs) }
     procs <- min(c(procs,nrow(tab)),na.rm=T)
+    if(is.null(dim(tab))) { Table <- FALSE }
   }
   outlist <- NULL; outnms <- NULL
   if(CPU) { outlist <- c(outlist,list(cpu.pc.list)); outnms <- c(outnms,"CPU") }
@@ -1631,15 +1763,19 @@ top <- function(CPU=!Table,RAM=!Table,Table=FALSE,procs=20,mem.key=NULL,cpu.key=
 
 # internal function to support top() function
 make.top.tab <- function(parz) {
+  if(!is.list(parz)) { warning("unexpected input"); return(NULL) }
   cnts <- sapply(parz,length)
   exp.lines <- Mode(cnts)
   shortz <- which(cnts<exp.lines)
   longz <- which(cnts>exp.lines)
-  parz[longz] <- lapply(parz[longz],function(X) { X[1:exp.lines] })
+  if(length(longz)>0) {  parz[longz] <- lapply(parz[longz],function(X) { X[1:exp.lines] }) }
   if(length(shortz)>0) { parz <- parz[-shortz] }
-  df <- as.data.frame(matrix(ncol=length(parz[[1]]),nrow=length(parz)))
+  LL <- length(parz[[1]]); if(LL < 1) { warning("unexpected input"); return(NULL) }
+  df <- as.data.frame(matrix(ncol=LL,nrow=length(parz)))
+  if(nrow(df)<1) { warning("unexpected input"); return(NULL)  }
   for(cc in 1:length(parz[[1]])) { df[,cc] <- sapply(parz,"[",cc) }
-  tab <- df[-1,]; colnames(tab) <- df[1,]; rownames(tab) <- NULL
+  if(nrow(df)<2) { warning("expected header row and at least 1 data row"); return(NULL)  }
+  tab <- df[-1, ,drop=FALSE]; colnames(tab) <- df[1,]; rownames(tab) <- NULL
   return(tab)
 }
 
@@ -1648,13 +1784,16 @@ divide.top.txt <- function(txt) {
   parz <- strsplit(txt," +|\t")
   parz <- lapply(parz,function(X) { X <- X[!is.na(X)] ; X[X!=""] } ) 
   headline <- which(sapply(parz,function(X) { all(c("PID","USER") %in% toupper(X)) }))
-  parz <- parz[headline:length(parz)]
-  headr <- txt[1:(headline-1)]
+  if(length(headline)<1) { warning("expected PID and USER column - at least 1 not found"); return(NA) }
+  parz <- parz[headline[1]:length(parz)]
+  headr <- txt[1:(headline[1]-1)]
   return(list(header=headr,table=parz))
 }
 
 # internal function to support top() function
 suck.num.from.txt <- function(txt) {
+  if(is.na(txt)) { return(NA) }
+  if(length(txt)<1) { return(NA) }
   splt <- strsplit(txt,"")
   nmall <- numeric()
   anm <- function(X) { suppressWarnings(as.numeric(X)) }
@@ -1732,11 +1871,15 @@ suck.mem <- function(headr,key="Mem") {
 
 # internal function to support top() function  
 suck.bytes <- function(tot1,GB=TRUE) {
+  mult <- 0
   if(length(grep("k",tot1,ignore.case=T))>0) { mult <- 1000 }
   if(length(grep("m",tot1,ignore.case=T))>0) { mult <- 10^6 }
   if(length(grep("g",tot1,ignore.case=T))>0) { mult <- 10^9 }
+  if(mult==0 & length(grep("b",tot1,ignore.case=T))>0) { mult <- 1 }
+  if(mult==0) { warning("expected symbol indicating units, defaulting to bytes"); mult <- 1 }
   lst <- c("kb","gb","mb","b","g","m","k")
   tot1 <- suck.num.from.txt(tot1)
+  if(is.na(tot1)) { tot1 <- 0 ; warning("no numbers found in text, setting to zero") }
   tot2 <- (as.numeric(tot1)*mult)/10^9 ; 
   if(!GB) { tot2 <- tot2/10^3 }
   return(tot2)
@@ -1772,7 +1915,7 @@ suck.bytes <- function(tot1,GB=TRUE) {
 packages.loaded <- function(pcks="",...,cran.check=TRUE,repos=NULL) {
   more <- c(...); if(length(more)>0) { pcks <- c(pcks,paste(more)) }
   if(!is.character(pcks)) { stop("must enter package names as character strings") }
-  pt <- "package:"; pkgset <- gsub(pt,"",search()[grep(pt,search())])
+  pt <- "package:"; pkgset <- gsub(pt,"",search()[grep(pt,search(),fixed=TRUE)])
   if(all(pcks=="")) { return(pkgset) }
   answer <- (all(pcks %in% pkgset))
   if(is.null(repos)) { try(repos <- getOption("repos") ) }
