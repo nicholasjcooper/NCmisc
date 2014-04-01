@@ -754,6 +754,7 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
 #' repos <- "http://cran.ma.imperial.ac.uk/" # OR: repos <- getOption("repos")
+#' setRepositories(ind=1:2) # allows searching of bioconductor packages too
 #' search.cran("useful",repos)
 #' search.cran(c("hmm","markov","hidden"),repos=repos)
 search.cran <- function(txt,repos="") {
