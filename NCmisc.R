@@ -1,9 +1,10 @@
 ###NAMESPACE ADDITIONS###
 # Depends: R (>= 2.10), grDevices, graphics, stats, utils
-# Imports: tools, proftools
+# Imports: tools, proftools, BiocInstaller
 # Suggests:
 # importFrom(proftools, readProfileData, flatProfile)
 # importFrom(tools, toHTML)
+# importFrom(BiocInstaller, biocVersion)
 # import(grDevices, graphics, stats, utils)
 ###END NAMESPACE###
 
@@ -690,7 +691,8 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
   # to force their version of a function with a duplicate name
   if(!bioC) { 
     repos <- getOption("repos")
-    if(any(repos=="@CRAN@")) { repos <- "http://cran.ma.imperial.ac.uk/" }
+    if(any(repos=="@CRAN@" | repos=="")) { repos <- getRepositories(1) }
+    if(is.null(repos) | is.na(repos)) { repos <- getRepositories(1) }
     if(avail) {
       goty <- getOption("pkgType"); 
       av.pk <- available.packages(type=goty,
@@ -725,9 +727,16 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
       }
       if(ans=="yes") {
         if(bioC) {
-          biocLite <- function(x) { print("please load biocLite function from http://bioconductor.org/biocLite.R") }
           source("http://bioconductor.org/biocLite.R") # biocLite() should now be replaced
-          biocLite(nxt.pck)
+          if(!exists("biocLite",mode="function")) {
+            biocLite <- function(x,...) { 
+              cat("please load biocLite function from http://bioconductor.org/biocLite.R and install",nxt.pck,"manually") 
+            } 
+          }
+          repos <- getOption("repos")
+          if(any(repos=="@CRAN@" | repos=="")) { repos <- getRepositories(1) }
+          if(is.null(repos) | is.na(repos)) { repos <- getRepositories(1) }
+          biocLite(nxt.pck,siteRepos=repos)
           suppressWarnings(checklib(nxt.pck,character.only=TRUE,warn.conflicts=FALSE,quietly=quietly))
         } else {
           install.packages(nxt.pck,repos=repos,dependencies=TRUE); 
@@ -748,25 +757,35 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
 #' Further searching can be done using utils::RSiteSearch()
 #'
 #' @param txt text to search for, a character vector, not case-sensitive
-#' @param repos repository (CRAN mirror) to use, "" defaults to getOption("repos")
+#' @param repos repository(s) (CRAN mirror) to use, "" defaults to getOption("repos")
+#' @param all.repos logical, if TRUE, then use all available repositories from getRepositories()
 #' @return list of hits for each keyword (txt)
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
 #' repos <- "http://cran.ma.imperial.ac.uk/" # OR: repos <- getOption("repos")
-#' setRepositories(ind=1:2) # allows searching of bioconductor packages too
+#' # setRepositories(ind=1:2) # for the session will by default search bioconductor packages too
 #' search.cran("useful",repos)
 #' search.cran(c("hmm","markov","hidden"),repos=repos)
-search.cran <- function(txt,repos="") {
+#' search.cran(c("snpStats","genoset","limma"),all.repos=TRUE)
+search.cran <- function(txt,repos="",all.repos=FALSE) {
   goty <- getOption("pkgType"); 
-  if(repos=="") { repos <- getOption("repos") }
+  if(all.repos) {
+    repos <- getRepositories() # use all available
+  }
+  if(all(repos=="")) { 
+    repos <- getOption("repos") 
+  }
+  if(any(repos=="@CRAN@")) { repos <- "http://cran.ma.imperial.ac.uk/" }
   av.pk <- available.packages(type=goty,
            contrib.url(repos=repos, type=goty))
   if(is.matrix(av.pk)) { 
     if("Package" %in% colnames(av.pk)) {
       av.pk <- av.pk[,"Package"]; dim(av.pk) <- NULL
     } else { av.pk <- av.pk[[1]] }
-  } else { warning("lookup did not return table with header 'Package'") }
+  } else { 
+    warning("lookup did not return table with header 'Package'")
+  }
   if(is.character(av.pk) & is.character(txt)) {
     if(!is.null(names(av.pk))) { names(av.pk) <- NULL }
     if(length(txt)>0) {
@@ -779,6 +798,99 @@ search.cran <- function(txt,repos="") {
     warning("txt must be character, and must be online to search for available.packages()")
   }
   return(out)
+}
+
+
+#' Detect all available R repositories.
+#' 
+#' In addition to the default CRAN repository, there are other repositories such
+#' as R-Forge, Omegahat, and bioConductor (which is split in to software, annotation,
+#' experiments and extras). This function allows you to retrieve which are available.
+#' This function complements (and takes code from) utils::setRepositories(), which
+#' will just set, not return which are available, but see there for more information
+#' about how this works. Detecting the available repositories can be useful to precede
+#' a call to setRepositories, and allows you to utilise these repositories without
+#' calling setRepositories (which is hard to reverse). This function can be used to
+#' expand the search space of the function search.cran() to include bioconductor packages.
+#' @param ind index, same as for 'setRepositories', if NULL this function returns all available
+#' repositories, or if an index, returns a subset.
+#' @param table logical, if TRUE, return a table of information, else just return the URLs, 
+#' which are the required input for the 'repos' argument for relevant functions, 
+#' e.g, available.packages() or search.cran()
+#' @return list of repositories with URLS, note that it is the URL that works best for
+#' use for passing a value for 'repos' to various functions.
+#' @export 
+#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @examples
+#' repos <- "http://cran.ma.imperial.ac.uk/" # OR: repos <- getOption("repos")
+#' getRepositories(table=TRUE) # shows all available
+#' getRepositories(2:5,FALSE) # returns index for all bioconductor repositories (on my system at least)
+#' search.cran("genoset",repos=getRepositories(1)) # does not find this bioconductor package on CRAN
+#' search.cran("genoset",repos=getRepositories()) # should now, because all repositories are used
+getRepositories <- function(ind = NULL,table=FALSE) {
+  p <- file.path(Sys.getenv("HOME"), ".R", "repositories")
+  if (!file.exists(p)) 
+    p <- file.path(R.home("etc"), "repositories")
+  a <- tools_read_repositories(p)  ## had to hack this function together as internal ::: to tools package
+  pkgType <- getOption("pkgType")
+  if (pkgType == "both") 
+    pkgType <- .Platform$pkgType
+  if (length(grep("^mac\\.binary", pkgType))) 
+    pkgType <- "mac.binary"
+  thisType <- a[[pkgType]]
+  a <- a[thisType, 1L:3L]
+  repos <- getOption("repos")
+  if ("CRAN" %in% row.names(a) && !is.na(CRAN <- repos["CRAN"])) 
+    a["CRAN", "URL"] <- CRAN
+  a[(a[["URL"]] %in% repos), "default"] <- TRUE
+  new <- !(repos %in% a[["URL"]])
+  if (any(new)) {
+    aa <- names(repos[new])
+    if (is.null(aa)) 
+      aa <- rep("", length(repos[new]))
+    aa[aa == ""] <- repos[new][aa == ""]
+    newa <- data.frame(menu_name = aa, URL = repos[new], 
+                       default = TRUE)
+    row.names(newa) <- aa
+    a <- rbind(a, newa)
+  }
+  if(is.numeric(ind)) { 
+    ind[ind<1] <- 1; ind[ind>nrow(a)] <- nrow(a); ind <- unique(ind)
+    a <- (a[ind,]) 
+  } 
+  if(table){
+    return(a)
+  } else {
+    return(a[,2])
+  }
+}
+
+
+
+# internal function stolen from 'tools'
+tools_read_repositories <- function (file) 
+{
+  # try to replicate the constant 'tools:::.BioC_version_associated_with_R_version'
+  get.bioc.version <- function() {
+    biocVers <- tryCatch({
+      BiocInstaller::biocVersion() # recent BiocInstaller
+    }, error=function(...) {         # no / older BiocInstaller
+      numeric_version(Sys.getenv("R_BIOC_VERSION", "2.13"))
+    })
+    return(biocVers)
+  }
+  tools_expand_BioC_repository_URLs <- function (x) 
+  {
+    x <- sub("%bm", as.character(getOption("BioC_mirror", "http://www.bioconductor.org")), 
+             x, fixed = TRUE)
+    sub("%v", as.character(get.bioc.version()), 
+        x, fixed = TRUE)
+  }
+  db <- utils::read.delim(file, header = TRUE, comment.char = "#", 
+                          colClasses = c(rep.int("character", 3L), rep.int("logical", 
+                                                                           4L)))
+  db[, "URL"] <- tools_expand_BioC_repository_URLs(db[, "URL"])
+  return(db)
 }
 
 
@@ -1903,17 +2015,19 @@ suck.bytes <- function(tot1,GB=TRUE) {
 #'  to search CRAN and see whether the package(s) even exist on CRAN.
 #' @param repos repository to use if package is not loaded and cran.check=TRUE,
 #'  if NULL, will attempt to use the repository in getOptions("repos") or will
-#'  default to the imperial.ac.uk mirror.
+#'  default to the imperial.ac.uk mirror. Otherwise the default is to use
+#'  all available repositories from getRepositories()
 #' @return logical TRUE or FALSE whether the whole list of packages are available
 #' @export
 #' @author Nicholas Cooper 
 #' @examples
-#' repos <- "http://cran.ma.imperial.ac.uk/"
-#' packages.loaded("NCmisc","reader",repos=repos)
-#' packages.loaded(c("bigmisc","nonsenseFailTxt"),repos=repos)
-#' packages.loaded(c("bigmisc","nonsenseFailTxt"),cran.check=FALSE)
+#' packages.loaded("NCmisc","reader")
+#' packages.loaded(c("bigpca","nonsenseFailTxt")) # both not found, as second not real
+#' packages.loaded(c("bigpca","nonsenseFailTxt"),cran.check=FALSE) # hide warning
 #' packages.loaded() # no argument means all loaded packages are listed
-packages.loaded <- function(pcks="",...,cran.check=TRUE,repos=NULL) {
+#' packages.loaded("snpStats",repos=getRepositories(1)) # doesn't find the bioconductor package on CRAN
+#' packages.loaded("snpStats",repos=getRepositories()) # now it can find it by using all repositories
+packages.loaded <- function(pcks="",...,cran.check=TRUE,repos=getRepositories()) {
   more <- c(...); if(length(more)>0) { pcks <- c(pcks,paste(more)) }
   if(!is.character(pcks)) { stop("must enter package names as character strings") }
   pt <- "package:"; pkgset <- gsub(pt,"",search()[grep(pt,search(),fixed=TRUE)])
