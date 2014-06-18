@@ -8,6 +8,247 @@
 # import(grDevices, graphics, stats, utils)
 ###END NAMESPACE###
 
+  
+  
+
+
+#' Create variables from a list
+#' 
+#' Places named objects in a list into the working environment as individual variables.
+#' Can be particularly helpful when you want to call a function that produces a list of
+#' multiple return variables; this gives a way to access them all at once in the environment
+#' from which the function was called.
+#' @param list list, with named objects, each element will become a named variable in
+#' the current environment
+#' @return New variables will be added to the current environment. Any already existing
+#' with the same name will be overwritten.
+#' @export
+#' @examples
+#' list.to.env(list(myChar="a string", myNum=1234, myList=list("list within a list",c(1,2,3))))
+#' print(myChar)
+#' print(myNum)
+#' print(myList)
+#' two.arg.return <- function(X) { return(list(Y=X+1,Z=X*10)) } 
+#' result <- two.arg.return(11) # function returns list with 2 variables
+#' list.to.env(result)
+#' print(Y); print(Z)
+list.to.env <- function(list) {
+  if(!is.list(list)) { stop("this function's sole parameter must be a list object")}
+  if(is.null(names(list))) { stop("list elements must be named") }
+  if(length(list)>1000) { warning("list contains over 1000 elements, this operation will crowd the workspace") }
+  for(cc in 1:length(list)) {
+    assign(x=names(list)[cc],value=list[[cc]],pos=parent.frame())
+  }
+  return(NULL)
+}
+
+  
+#' Simple representation and retrieval of Date/Time
+#'
+#' Retrieve a simple representation of date_time or just date, 
+#' for generating day/time specific file names, etc.
+#' @param sep character, separator to use for the date/time, eg, 
+#' underscore or <space> " ".
+#' @param long logical, whether to display a longer version of the
+#' date and time, or just a simple version
+#' @param time logical, whether to include the time, or just the date
+#' @export
+#' @return A string containing the date: MMMDD and optionally time HRam/pm.
+#' Or if long=TRUE, a longer representation: DAY MM DD HH.MM.SS YYYY.
+#' @examples
+#' simple.date()
+#' simple.date(" ",long=TRUE)
+#' simple.date(time=FALSE)
+simple.date <- function(sep="_",long=FALSE,time=TRUE) {
+  myt <- format(Sys.time(), "%a %b %d %X %Y")
+  if(long) {return(gsub(":",".",gsub(" ",sep,myt))) }
+  dt <- strsplit(myt,":",fixed=TRUE)[[1]][1]
+  splt <- strsplit(dt," ")[[1]]
+  tm <- as.numeric(tail(splt,1))
+  pr.tm <- head(splt,length(splt)-1)
+  pr.tm[2] <- toupper(pr.tm[2])
+  ampm <- {if(as.numeric(tm)>11) {"PM"} else {"AM"}}
+  tm <- {if(tm>12) { tm-12 } else { if(tm<1) { tm+12 } else { tm } }}
+  if(nchar(paste(pr.tm[3]))==1) { pr.tm[3] <- paste("0",pr.tm[3],sep="" ) }
+  if(!time) { out <- paste(pr.tm[-1],collapse="") } else {
+    out <- paste(paste(pr.tm[-1],collapse=""),sep,
+                 tm, ampm ,sep="") }
+  return(out)
+}
+
+
+
+
+#' Easily display fraction and percentages
+#' 
+#' For a subset 'n' and total 'N', nicely prints text n/N and/or percentage%.
+#' Often we want to display proportions and this simple function reduces the
+#' required amount of code for fraction and percentage reporting. If 
+#' insufficient digits are provided small percentage may truncate to zero.
+#' @param n numeric, the count for the subset of N (the numerator)
+#' @param N numeric, the total size of the full set (the denominator)
+#' @param digits, integer, the number of digits to display in the percentage
+#' @param pc, logical, whether to display the percentage of N that n comprises
+#' @param oo, logical, whether to display n/N as a fraction
+#' @param use.sci, logical, whether to allow scientific notation for small/large
+#' percentages.
+#' @return A string showing the fraction n/N and percentage (or just one of these)
+#' @export
+#' @examples
+#' out.of(345,12144)
+#' out.of(345,12144,pc=FALSE)
+#' out.of(3,10^6,digits=6,oo=FALSE)
+#' out.of(3,10^6,digits=6,oo=FALSE,use.sci=TRUE)
+out.of <- function(n,N=100,digits=2,pc=TRUE,oo=TRUE,use.sci=FALSE) {
+  pct <- 100*(n/N)
+  outof <- paste(n,"/",N,sep="")
+  if(use.sci) {
+    percent <- paste(round(pct,digits),"%",sep="")
+  } else {
+    percent <- paste(format(round(pct,digits),scientific=FALSE),"%",sep="")
+  }  
+  if(pc & oo) {
+    outof <- paste(outof," (",percent,")",sep="")
+  } else {
+    if(pc) { outof <- percent }
+  }
+  return(outof)
+}
+
+
+
+
+#' Extend an interval by percentage
+#' 
+#' For various reasons, such as applying windows, setting custom range limits for plots, it may 
+#' be desirable to extend an interval by a certain percentage.
+#' @param X a numeric range, should be length 2. If a longer numeric, will be coerced with range()
+#' @param pc percentage by which to extend X, can be entered in either percentage style: 0<pc<1; 
+#' or 1<pc<100
+#' @param swap logical, if TRUE, flip the extension directions if X[2]<X[1], ie, not in numerical
+#' order
+#' @param pos logical, if TRUE, make an extension in the positive direction
+#' @param neg logical, if TRUE, make an extension in the negative direction
+#' @examples
+#' extend.pc(c(2,10),0.25) # extend X symmetrically
+#' extend.pc(c(2:10),0.25) # extend the range of X
+#' # the following 3 examples extend X by 1% only in the 'positive' direction
+#' extend.pc(c(25000,55000),.01,neg=FALSE) # standard positive extension
+#' extend.pc(c(55000,25000),.01,neg=FALSE) # ranges in reverse order, not swapped
+#' extend.pc(c(55000,25000),.01,neg=FALSE,swap=TRUE) # ranges in reverse order, swapped
+extend.pc <- function(X,pc=.5,pos=TRUE,neg=TRUE,swap=FALSE) {
+  if(!is.numeric(X)) { stop("X must be numeric") }
+  if(length(X)==0) { stop("X was empty") }
+  if(length(X)==1) { X <- c(X,X); warning("X was length=1, extended by repeating X twice") }
+  if(length(X)>2) { X <- range(X) } #; warning("X was length>2, coerced using X <-range(X)") }
+  pc <- force.percentage(pc)
+  yn <- yp <- abs(X[2]-X[1])*pc
+  if(!pos) { yp <- 0 }; if(!neg) { yn <- 0 }
+  if(swap) {
+    # flip the extension directions if X[2]<X[1], ie, not in numerical order
+    if(X[1]>X[2]) { temp <- yn; yn <- yp; yp <- temp }
+  }
+  return(c(X[1]-yn,X[2]+yp))
+}
+
+
+#' Draw a scatterplot with a fit line
+#'
+#' Drawing a fit line usually requires some manual steps requiring several lines of code,
+#' such as ensuring the data is sorted by x, and for some functions doesn't contain missing values.
+#' This function takes care of these steps and automatically adds a loess fitline, or non-linear 
+#' fitline. The type of scatter defaults to 'plot', but other scatter plot functions can be 
+#' specified, such as graphics::smoothScatter(), for example. If 'file' is specifed, will 
+#' automatically plot to a pdf of that name.
+#' @param x data for the horizontal axis (independent variable)
+#' @param y data for the vertical axis (dependent variable)
+#' @param file file name for pdf export, leave as NULL if simply plotting to the GUI. File 
+#' extension will be added automatically if missing
+#' @param loess logical, if TRUE, fit using loess(), else use a polynomial fit
+#' @param scatter function, by default is graphics::plot(), but any scatter-plot function of the 
+#' form F(x,y,...) can be used, for example graphics::smoothScatter().
+#' @param return.vectors logical, if TRUE, do not plot anything, just return the x and y coordinates
+#' of the fit line as a list of vectors, x and y.
+#' @param fit.col colour of the fit line
+#' @param fit.lwd width of the fit line
+#' @param fit.lty type of the fit line
+#' @param fit.leg whether to include an automatic legend for the fit line (will alter the y-limits
+#' to fit)
+#' @param fit.R2 logical, whether to display r squared of the fit in the fit legend
+#' @param ... further arguments to the plot function specified by 'scatter', e.g, 'main', 'xlab', etc
+#' @return if file is a character argument, plots data x,y to a file, else will generate a plot to
+#' the current plotting environment/GUI. The display of the x,y points defaults to 'plot', but 
+#' alternate scatter plot functions can be specified, such as graphics::smoothScatter() which used 
+#' density smoothing, for example. Also, another option is to set return.vectors=TRUE, and then
+#' the coordinates of the fit line will be returned, and no plot will be produced.
+#' @examples
+#' library(NCmisc)
+#' DD <- sim.cor(1000,4) # create a simulated, correlated dataset
+#' loess.scatter(DD[,3],DD[,4],loess=FALSE,bty="n",pch=".",cex=2)
+#' loess.scatter(DD[,3],DD[,4],scatter=smoothScatter)
+#' xy <- loess.scatter(DD[,3],DD[,4],return.vectors=TRUE)
+#' prv(xy) # preview the vectors produced
+loess.scatter <- function(x,y,file=NULL,loess=TRUE,span=0.75,scatter=plot,...,ylim=NULL,return.vectors=FALSE,
+                          fit.col="red",fit.lwd=2,fit.lty="solid",fit.leg=TRUE,fit.r2=TRUE) {
+  if(length(Dim(x))!=1 | length(Dim(y))!=1) { stop("x and y must be vectors") }
+  if(length(x)<1 | length(y)<1) { warning("x/y must have positive length"); return(NULL) }
+  if(!is.numeric(x) | !is.numeric(y)) { stop("x and y must be numeric") }
+  if(length(x)!=length(y)) { stop("x and y must be vectors of the same length") }
+  y1 <- y[order(x)]
+  x1 <- x[order(x)]
+  missing.either <- is.na(x1) | is.na(y1)
+  if(length(which(missing.either))>0) { y1 <- y1[!missing.either]; x1 <- x1[!missing.either] }
+  if(length(y1)<5) { 
+    do.fit=F; warning("not enough points remain to generate plot with fit-line") 
+  } else { do.fit <- T }
+  if(do.fit) {
+    if(!loess) {
+      # if(all(x1>0)) {
+      #   fit <- "non-linear"
+      #   lo <- lm(y1~x1+sqrt(x1)+log(x1))
+      # } else {
+      fit <- "polynomial"
+      lo <- lm(y1~x1 + (x1^2) + (x1^3) + (x1^4))
+      # }
+    } else {
+      fit <- "loess"
+      lo <- loess(y1~x1,span=span)
+    }
+    y2 <- predict(lo)
+    if(fit.r2) {
+      r2 <- round(cor(y1,y2,use="pairwise.complete"),3)
+      leg.txt <- paste(fit,"fit line, r2 =",r2)
+    } else {
+      leg.txt <- paste(fit,"fit line")
+    }
+  }
+  if(!return.vectors) {
+    if(is.character(file)) { fnm <- cat.path("",fn=file[1],ext="pdf"); pdf(fnm) }
+    if(fit.leg & do.fit) {
+      y.range <- range(y1)
+      ## this section of code allows a custom 'ylim' setting to override the internal ylim
+      if(is.numeric(ylim) & length(ylim)==2) {
+        if(ylim[1]>y.range[1] | ylim[2]<y.range[2]) { warning("ylim will truncate the y vector in the plot") }
+        y.range <- ylim
+      } 
+      y.lims <- extend.pc(y.range,pc=0.25,neg=F)
+      y.lims <- extend.pc(y.lims,pc=0.1,pos=F)
+    } else { y.lims <- NULL }
+    
+    y <- y1; x <- x1 # ensures default x,y labels are x,y
+    scatter(x,y,...,ylim=y.lims)
+    if(do.fit) { lines(x1,y2,col=fit.col,lwd=fit.lwd,lty=fit.lty) }
+    if(fit.leg & do.fit) { legend("topright",legend=leg.txt, lty=fit.lty, col=fit.col, lwd=fit.lwd, bty="n") }
+    if(is.character(file)) { cat("wrote file",file,"\n"); dev.off() }
+  } else {
+    return(list(x=x1,y=y2))
+  }
+}
+
+  
+
+
+
 #' Return up to 22 distinct colours.
 #' 
 #' Useful if you want to colour 22 autosomes, etc, because most R
