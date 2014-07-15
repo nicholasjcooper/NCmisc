@@ -1543,7 +1543,9 @@ display.var <- function(val,label,cnts=NULL) {
   }
   dv <- Dim(val)
   if(is.numeric(dv)) { if(all(dv==1)) {
-    cat(label,": ",val," (",typ,", ",paste(Dim(val),collapse="*"),")",sep=""); return(invisible())
+    if(is.vector(val)) {
+      cat(label,": ",val," (",typ,", ",paste(Dim(val),collapse="*"),")",sep=""); return(invisible())
+    }
   } }
   if(is(val)[1]=="list") {
     cat(label," (",typ,", ",paste(Dim(val),collapse="*"),")\n",sep=""); print(headl(val)); return(invisible())
@@ -2287,4 +2289,60 @@ packages.loaded <- function(pcks="",...,cran.check=TRUE,repos=getRepositories())
 }
 
 
+#' Split a text file into multiple parts
+#' 
+#' Wrapper for the bash command 'split' that can separate a text file into multiple 
+#' roughly equal sized parts. This function removes the need to remember syntax and
+#' suffixes of the bash command
+#' @param fn character, file name of the text file to split, if the file is an imcompatible format
+#'  the linux command should return an error message to the console
+#' @param size integer, the maximum number of lines for the split parts of the file produced
+#' @param same.dir logical, whether the resulting files should be moved to the same
+#'  directory as the original file, or simply left in the working directory [getwd()]
+#' @param verbose logical, whether to report the resulting file names to the console
+#' @param suf character, suffix for the split files, default is 'part', the original file
+#'  extension will be appended after this suffix
+#' @export
+#' @return returns the list of file names produced (including path)
+#' @author Nicholas Cooper 
+#' @examples
+#' file.name <- "myfile.txt"
+#' writeLines(fakeLines(max.lines=1000),con=file.name)
+#' new.files <- file.split(file.name,size=50)
+#' unlink(new.files); unlink(file.name)
+file.split <- function(fn,size=50000,same.dir=FALSE,verbose=TRUE,suf="part") {
+  if(!file.exists(fn)) { stop("file",fn,"did not exist")}
+  if(!is.numeric(size)) { stop("size must be numeric") }
+  if(!check.linux.install("split")) { stop("command could not run as your system did not have the 'split' command installed")}
+  size <- as.integer(round(size))
+  FN <- basename(fn)
+  EXT <- get.ext(fn)
+  DIR <- dirname(fn)
+  if(!same.dir) { DIR <- getwd() }
+  file.out <- paste(rmv.ext(FN),ext=suf,sep="_")
+  cmd <- paste0("split -d -l ",size," ",fn," ",file.out)
+  st <- proc.time()[3]
+  jj <- suppressWarnings(suppressMessages(system(cmd,intern = TRUE, ignore.stderr = TRUE)))
+  tot <- proc.time()[3]-st
+  if(tot>3) {
+    cat("command '",cmd,"' was run using bash\n",sep="")
+  }
+  new.filez <- list.files(pattern=file.out)
+  if(length(new.filez)<1) { stop("no split part files produced, operation failed") }
+  tt <-  new.filez %in% cat.path("",new.filez,ext=EXT)
+  if(any(tt)) {
+    # files from a previous run may already be in the directory already with an extension
+    new.filez <- new.filez[-which(tt)]
+  }
+  new.fnz <- cat.path(DIR,new.filez,ext=EXT)
+  for (dd in 1:length(new.filez)) {
+    system(paste0("mv ",new.filez[dd]," ",new.fnz[dd]))
+  }
+  if(verbose) {
+    cat("split ",fn," into ",length(new.filez)," parts:\n\n  ",paste(new.fnz,collapse="\n  "),"\n",sep="")
+  }
+  return(new.fnz)
+}
+
+FF <- "/chiswick/data/ncooper/metabochipRunTest/ANNOTATION/snpNames.txt"
 
