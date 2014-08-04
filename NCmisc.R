@@ -9,7 +9,7 @@
 ###END NAMESPACE###
 
   
-  
+# must add 'make.divisor' to the internal list
 
 
 #' Create variables from a list
@@ -481,7 +481,12 @@ headl <- function (x, n = 6, skip = 20, skip2 = 10, ind = "", ind2 = "  ")
 #' For unknown types, leaves unchanged with a warning.
 #'
 #' @param X The object to remove NAs, any vector, matrix or data.frame
-#' @return Vector minus NA's, or the matrix/data.frame minus NA rows
+#' @return Vector minus NA's, or the matrix/data.frame minus NA rows.
+#' If it's a character vector then values of "NA" will also be excluded
+#' in addition to values = NA, so be careful if "NA" is a valid value
+#' of your character vector. Note that "NA" values occur when 'paste(...,NA,...)' is
+#' applied to a vector of any type, whereas 'as.character(...,NA,...)'
+#' avoids this.
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
@@ -506,7 +511,14 @@ narm <- function(X) {
           return(X[!is.na(X)])
         }
       } else {
-        return(X[!is.na(X)])  
+        if(is.character(X)) {
+          ## paste(NA) = "NA", whereas as.character(NA) = NA , this fixes the "NA"'s ##
+          out <- X[!is.na(X)]
+          out <- out[out!="NA"]
+          return(out)
+        } else {
+          return(X[!is.na(X)])            
+        }
       }
     } else {
       warning("unsupported type, X unchanged"); return(X)
@@ -648,36 +660,113 @@ rmv.spc <- function(str,before=TRUE,after=TRUE,char=" ") {
 
 #' Estimate the memory required for an object.
 #'
-#' An existing object or just dim/length of a proposed object
+#' Can enter an existing object or just the dimensions or total length of a proposed object.
+#' The estimate is based on the object being of numeric type. Integers use half the space
+#' of numeric, raw() use 1/8th of the space. Factors and characters can vary, although
+#' factors will always use less than numeric, and character variables may easily use up
+#' to twice as much depending on the length [nchar()] of each element.
 #'
-#' @param dat either a matrix/dataframe, or else dims; c(nrow,ncol)
-#' @return returns minimum memory requirement in GB (numeric, scalar)
+#' @param dat either a vector/matrix/dataframe object, or else up to 10 dimensions of such an
+#' object, or a potential object, i.e; c(nrow,ncol). If entering an object directly,
+#' you can leave out the 'integer' and 'raw' arguments as these will be detected from
+#' the object type. Any set of dimensions >10 will be assumed to be a vector, so
+#' if you have such an object, better to submit the total product [base::prod()].
+#' @param integer if the object or potential object is integer or logical type,
+#' set this argument to TRUE, if this is TRUE, the parameter 'RAW' will
+#' be ignored; integer and logical types use 1/2 of the memory of numeric types
+#' @param raw if the object or potential object is of 'raw' type,
+#' set this argument to TRUE, note that if 'integer' is TRUE, this parameter 'RAW' will
+#' be ignored; raw types use 1/8 of the memory of numeric types
+#' @param unit the storage units to use for the result, ie, "gb", "mb","kb", "b" for
+#' gigabytes, megabytes, kilobytes, or bytes respectively.
+#' @param add.unit logical, whether to append the unit being used to the result,
+#' making the result character type instead of numeric.
+#' @return returns the minimum memory requirement to store and object of the specified
+#' size, as a numeric scalar, in gigabytes (default) or else using the units specified by 'unit',
+#' and if add.unit = TRUE, then the result will be character type instead of numeric, with
+#' the units appended.
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
-#' estimate.memory(matrix(rnorm(100),nrow=10))
-#' estimate.memory(c(10^6,10^4))
-#' estimate.memory(5.4*10^8)
-estimate.memory <- function(dat)
+#' myMatrix <- matrix(rnorm(100),nrow=10)
+#' myVec <- sample(1:1000)
+#' estimate.memory(myMatrix,unit="bytes") # enter a matrix object
+#' estimate.memory(myVec,unit="kb" ,add.unit=TRUE) # enter a vector object
+#' estimate.memory(c(10,10,10,10,10),unit="kb") # 5 dimensional array
+#' estimate.memory(c(10^6,10^4), add.unit=TRUE) # large matrix
+#' estimate.memory(5.4*10^8, add.unit=TRUE)  # entering argument as number of total cells, rather than as dims
+#' estimate.memory(5.4*10^8, integer=TRUE, add.unit=TRUE)
+#' estimate.memory(5.4*10^8, raw=TRUE, add.unit=TRUE)
+#' estimate.memory(5.4*10^8, TRUE, TRUE, add.unit=TRUE) # note same as integer as 'integer' overrides 'raw'
+estimate.memory <- function(dat, integer=FALSE, raw=FALSE, unit=c("gb","mb","kb","b"), add.unit=FALSE)
 {
   # based on a numeric object, estimate the minimum memory requirement
-  if(!is.null(dim(dat))) { dimz <- dim(dat) } else { dimz <- dat }
+  cells.per.gb <- 2^27  # size of double() resulting in ~1GB of memory use by R 2.15
+  divisor <- make.divisor(unit,"unit")
+  multiplier <- 10^9/divisor
+  if(!is.null(dim(dat))) { 
+    memory.estimate <- as.numeric(object.size(dat))
+    memory.estimate <- memory.estimate/divisor
+    if(add.unit) { memory.estimate <- paste(memory.estimate,unit[1]) }
+    return(memory.estimate)
+  } else { dimz <- dat }
+  dimz <- narm(dimz)
   if(length(dimz)==1) { dimz[2] <- 1 }
-  if(length(dimz)==2) {
-    rws <- dimz[1]; cls <- dimz[2]
-    cells.per.gb <- 2^27  # size of double() resulting in ~1GB of memory use by R 2.15
-    memory.estimate <- as.double((as.double(rws)*as.double(cls))/cells.per.gb)
+  if(length(dimz)>1 & length(dimz)<11 & is.numeric(dimz)) {
+    total.size <- as.double(1)
+    for(cc in 1:length(dimz)) { total.size <- as.double(total.size*as.double(dimz[cc])) }
+    memory.estimate <- as.double(as.double(total.size)/cells.per.gb)
+    memory.estimate <- memory.estimate*multiplier
+    if(integer) { memory.estimate <- memory.estimate/2 } else { if(raw) { memory.estimate <- memory.estimate/8 } }
+    if(add.unit) { memory.estimate <- paste(round(memory.estimate,6),unit[1]) }
     return(memory.estimate)
   } else {
-    warning("tried to estimate memory for object which is neither a pair of dimension sizes or a dataframe/matrix") 
+    # guessing this is a vector
+    if(!is.list(dimz) & is.vector(dimz)) { 
+      LL <- length(dimz) 
+      return(estimate.memory(LL, integer=integer, raw=raw, unit=unit, add.unit=add.unit))
+    } else {
+      warning("tried to estimate memory for object which is neither a vector, pair of dimension sizes or a dataframe/matrix") 
+    }
   }
 }
 
 
+#internal
+make.divisor <- function(unit=c("kb","mb","gb","b"), par.name="unit") {
+  valid.units <- c("k","m","g","b")
+  unit <- tolower(unit[1]);
+  unit <- substr(unit,1,1)
+  if(!unit %in% valid.units) { warning("invalid entry to 'unit', defaulting to kilobytes") ; unit <- "k" }
+  divisor <- switch(unit,k=1000,m=10^6, g=10^9, b=1)
+  return(divisor)
+}
+
+
+#' Summary of RAM footprint for all R objects in the current session.
+#' Not my function, but taken from an R-Help response by Elizabeth Purdom,
+#' at Berkeley. Simply applies the function 'object.size' to the objects
+#' in ls(). Also very similar to an example in the 'Help' for the 
+#' utils::object.size() function.
+#' @param unit default is to display "kb", but you can also choose
+#' "b"=bytes, "mb"= megabyte, or "gb" = gigabytes. Only the first
+#' letter is used, and is not case sensitive, so enter units how you
+#' like.
+#' @return a list of object names with memory usage in bytes
+#' @export
+#' @examples
+#' memory.summary() # shows memory used by all objects in the current session in kb
+#' memory.summary("mb") # change units to megabytes
+memory.summary <- function(unit=c("kb","mb","gb","b")) {
+  divisor <- make.divisor(unit,"unit")
+  out <- sort( sapply(ls(envir=parent.frame(n = 1)),function(x){object.size(get(x))/divisor}))
+  return(out)
+}
+
 #' Wait for a period of time.
 #' 
 #' Waits a number of hours minutes or seconds (doing nothing).
-#' This will use 100% of 1 cpu.
+#' Note that this 'waiting' will use 100% of 1 cpu.
 #'
 #' @param dur waiting time
 #' @param unit time units h/m/s, seconds are the default
@@ -712,7 +801,10 @@ wait <- function(dur,unit="s",silent=TRUE) {
 #' Useful for identifying which functions are taking the
 #' most time. This procedure will return an error unless
 #' expr takes more than ~0.1 seconds to evaluate. I 
-#' could not see any simple way to avoid this limitation.
+#' could not see any simple way to avoid this limitation. Occassionally
+#' other errors are produced for no apparent reason which are due
+#' to issues within the proftools package that are out of my
+#' control.
 #' 
 #' @param expr an expression, must take at least 1 second (roughly)
 #' @param suppressResult logical, if true, will return timing 
@@ -903,7 +995,10 @@ pad.left <- function(X, char=" ", numdigits=NA)
 #' 
 #' Like 'require()' except it will attempt to install a package if
 #' necessary, and will also deal automatically with bioconductor
-#' packages too.
+#' packages too. Useful if you wish to share code with people who
+#' may not have the same libraries as you, you can include a call to
+#' this function which will simply load the library if present, or
+#' else install, then load, if they do not have it.
 #'
 #' @param pcknms list of packages to load/install, shouldn't mix 
 #'  bioconductor/CRAN in one call
@@ -968,7 +1063,7 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
       }
       if(ans=="yes") {
         if(bioC) {
-          source("http://bioconductor.org/biocLite.R") # biocLite() should now be replaced
+          source("http://bioconductor.org/biocLite.R",local=TRUE) # biocLite() should now be replaced
           if(!exists("biocLite",mode="function")) {
             biocLite <- function(x,...) { 
               cat("please load biocLite function from http://bioconductor.org/biocLite.R and install",nxt.pck,"manually") 
@@ -978,11 +1073,12 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
           if(any(repos=="@CRAN@" | repos=="")) { repos <- getRepositories(1) }
           if(is.null(repos) | is.na(repos)) { repos <- getRepositories(1) }
           biocLite(nxt.pck,siteRepos=repos)
-          suppressWarnings(checklib(nxt.pck,character.only=TRUE,warn.conflicts=FALSE,quietly=quietly))
+          suppressWarnings(worked <- checklib(nxt.pck,character.only=TRUE,warn.conflicts=FALSE,quietly=quietly))
         } else {
           install.packages(nxt.pck,repos=repos,dependencies=TRUE); 
-          suppressWarnings(checklib(nxt.pck,character.only=TRUE,warn.conflicts=FALSE,quietly=quietly)) 
+          suppressWarnings(worked <- checklib(nxt.pck,character.only=TRUE,warn.conflicts=FALSE,quietly=quietly)) 
         }
+        if(!worked) { warning("automated installation of required package: ",nxt.pck," failed") }
       } else {
         warning("please manually install package ",nxt.pck," to continue")
       }
@@ -1459,6 +1555,11 @@ Substitute <- function(x=NULL,...) {
 #' prv() is the same as preview() except it can take objects without using double quotes
 #' and has no 'labels' command (and doesn't need one). If expressions are entered rather
 #' than variable names, then prv() will attempt to pass the arguments to preview().
+#' prv() assumes that the variable(s) to report originate from the environment calling
+#' prv(), and if not found there, then it will search through all accessible environments
+#' starting with the global environment, and then will report the first instance found,
+#' which in exceptional circumstances (be warned) may not be the instance you intended
+#' to retrieve.
 #' @param ... series of variable(s) to report, separated by commas, which will trigger
 #'  automatic labelling of the variable name
 #' @param counts a list of array index values; so if calling during a counting loop, the
@@ -1486,10 +1587,10 @@ prv <- function(...,counts=NULL) {
   if(is(txt)[1]=="simpleError") { 
     #warning("not a function name")
     varlist <- list(...)
-    sapply(varlist,preview)
+    sapply(varlist,preview,prv.call=TRUE)
     return(NULL)
   }
-  return(preview(varlist,labels=NULL,counts=counts))
+  return(preview(varlist,labels=NULL,counts=counts,prv.call=TRUE))
 }
 
 
@@ -1607,6 +1708,10 @@ display.var <- function(val,label,cnts=NULL) {
 #'  best to use assume.char=FALSE, otherwise the search for alternative environments might not happen.
 #'  Note that in most cases the automatic detection of the input should understand what you want, regardless
 #'  of the value of assume.char.
+#' @param prv.call It is recommended to always leave this argument as FALSE when calling preview()
+#' directly. If set to TRUE, it will first search 2 generations back for the parent frame, instead 
+#' of one, as it will assume that the variable(s) to preview are not directly called by preview(),
+#' but through a wrapper for preview, such as prv().
 #' @seealso \code{\link{Dim}} 
 #' @export
 #' @examples
@@ -1626,7 +1731,7 @@ display.var <- function(val,label,cnts=NULL) {
 #'  for (dd in 1:4) { preview("testvar4",counts=list(cc,dd)) }}
 #'
 #' for (dd in 1:3) { preview("testvar5",counts=list(dd=dd)) }
-preview <- function(varlist,labels=NULL,counts=NULL,assume.char=FALSE) {
+preview <- function(varlist,labels=NULL,counts=NULL,assume.char=FALSE, prv.call=FALSE) {
   ## for debugging, simplify code to print vars you are checking
   lab <- varlist
   if(is.character(varlist) & (length(labels)<length(varlist))) {
@@ -1670,7 +1775,8 @@ preview <- function(varlist,labels=NULL,counts=NULL,assume.char=FALSE) {
     }
     return(invisible())
   }
-  ENVIR <- parent.frame()
+  if(prv.call) { gens <- 2 } else { gens <- 1 }
+  ENVIR <- parent.frame(n=gens)
   for(cc in 1:length(lab)) {
     label <- lab[cc]
     #print(sys.parent())
@@ -2344,5 +2450,4 @@ file.split <- function(fn,size=50000,same.dir=FALSE,verbose=TRUE,suf="part") {
   return(new.fnz)
 }
 
-FF <- "/chiswick/data/ncooper/metabochipRunTest/ANNOTATION/snpNames.txt"
 
