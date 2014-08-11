@@ -737,7 +737,7 @@ make.divisor <- function(unit=c("kb","mb","gb","b"), par.name="unit") {
   valid.units <- c("k","m","g","b")
   unit <- tolower(unit[1]);
   unit <- substr(unit,1,1)
-  if(!unit %in% valid.units) { warning("invalid entry to 'unit', defaulting to kilobytes") ; unit <- "k" }
+  if(!unit %in% valid.units) { warning("invalid entry to ",par.name," defaulting to kilobytes") ; unit <- "k" }
   divisor <- switch(unit,k=1000,m=10^6, g=10^9, b=1)
   return(divisor)
 }
