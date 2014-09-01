@@ -1,7 +1,7 @@
 ###NAMESPACE ADDITIONS###
-# Depends: R (>= 2.10), grDevices, graphics, stats, utils
+# Depends: R (>= 2.10), grDevices, graphics, stats, utils, reader
 # Imports: tools, proftools, BiocInstaller
-# Suggests:
+# Suggests: KernSmooth
 # importFrom(proftools, readProfileData, flatProfile)
 # importFrom(tools, toHTML)
 # importFrom(BiocInstaller, biocVersion)
@@ -127,6 +127,7 @@ out.of <- function(n,N=100,digits=2,pc=TRUE,oo=TRUE,use.sci=FALSE) {
 #' order
 #' @param pos logical, if TRUE, make an extension in the positive direction
 #' @param neg logical, if TRUE, make an extension in the negative direction
+#' @export 
 #' @examples
 #' extend.pc(c(2,10),0.25) # extend X symmetrically
 #' extend.pc(c(2:10),0.25) # extend the range of X
@@ -163,8 +164,10 @@ extend.pc <- function(X,pc=.5,pos=TRUE,neg=TRUE,swap=FALSE) {
 #' @param file file name for pdf export, leave as NULL if simply plotting to the GUI. File 
 #' extension will be added automatically if missing
 #' @param loess logical, if TRUE, fit using loess(), else use a polynomial fit
+#' @param span numeric scalar, argument passed to the 'span' parameter of loess(), see ?loess for details
 #' @param scatter function, by default is graphics::plot(), but any scatter-plot function of the 
 #' form F(x,y,...) can be used, for example graphics::smoothScatter().
+#' @param ylim numeric range for y axis, argument passed to plot(), see ?plot.
 #' @param return.vectors logical, if TRUE, do not plot anything, just return the x and y coordinates
 #' of the fit line as a list of vectors, x and y.
 #' @param fit.col colour of the fit line
@@ -172,8 +175,9 @@ extend.pc <- function(X,pc=.5,pos=TRUE,neg=TRUE,swap=FALSE) {
 #' @param fit.lty type of the fit line
 #' @param fit.leg whether to include an automatic legend for the fit line (will alter the y-limits
 #' to fit)
-#' @param fit.R2 logical, whether to display r squared of the fit in the fit legend
+#' @param fit.r2 logical, whether to display r squared of the fit in the fit legend
 #' @param ... further arguments to the plot function specified by 'scatter', e.g, 'main', 'xlab', etc
+#' @export
 #' @return if file is a character argument, plots data x,y to a file, else will generate a plot to
 #' the current plotting environment/GUI. The display of the x,y points defaults to 'plot', but 
 #' alternate scatter plot functions can be specified, such as graphics::smoothScatter() which used 
@@ -181,6 +185,7 @@ extend.pc <- function(X,pc=.5,pos=TRUE,neg=TRUE,swap=FALSE) {
 #' the coordinates of the fit line will be returned, and no plot will be produced.
 #' @examples
 #' library(NCmisc)
+#' require(KernSmooth)
 #' DD <- sim.cor(1000,4) # create a simulated, correlated dataset
 #' loess.scatter(DD[,3],DD[,4],loess=FALSE,bty="n",pch=".",cex=2)
 #' loess.scatter(DD[,3],DD[,4],scatter=smoothScatter)
@@ -692,10 +697,10 @@ rmv.spc <- function(str,before=TRUE,after=TRUE,char=" ") {
 #' estimate.memory(myVec,unit="kb" ,add.unit=TRUE) # enter a vector object
 #' estimate.memory(c(10,10,10,10,10),unit="kb") # 5 dimensional array
 #' estimate.memory(c(10^6,10^4), add.unit=TRUE) # large matrix
-#' estimate.memory(5.4*10^8, add.unit=TRUE)  # entering argument as number of total cells, rather than as dims
+#' estimate.memory(5.4*10^8, add.unit=TRUE)  # entering argument as # total cells, rather than dims
 #' estimate.memory(5.4*10^8, integer=TRUE, add.unit=TRUE)
 #' estimate.memory(5.4*10^8, raw=TRUE, add.unit=TRUE)
-#' estimate.memory(5.4*10^8, TRUE, TRUE, add.unit=TRUE) # note same as integer as 'integer' overrides 'raw'
+#' estimate.memory(5.4*10^8, TRUE, TRUE, add.unit=TRUE) #  'integer' overrides 'raw'
 estimate.memory <- function(dat, integer=FALSE, raw=FALSE, unit=c("gb","mb","kb","b"), add.unit=FALSE)
 {
   # based on a numeric object, estimate the minimum memory requirement
@@ -757,7 +762,10 @@ make.divisor <- function(unit=c("kb","mb","gb","b"), par.name="unit") {
 #' memory.summary("mb") # change units to megabytes
 memory.summary <- function(unit=c("kb","mb","gb","b")) {
   divisor <- make.divisor(unit,"unit")
-  out <- sort( sapply(ls(envir=parent.frame(n = 1)),function(x){object.size(get(x))/divisor}))
+  out <- sapply(ls(envir=parent.frame(n = 1)),function(x){object.size(get(x))/divisor})
+  if(is.atomic(out)) {
+    out <- sort(out)
+  } 
   return(out)
 }
 
@@ -2450,3 +2458,94 @@ file.split <- function(fn,size=50000,same.dir=FALSE,verbose=TRUE,suf="part") {
 }
 
 
+#INTERNAL
+## COPY FROM READER, SO NCMISC DOESN'T DEPEND ON READER
+rmv.ext <- function(fn=NULL,only.known=TRUE,more.known=NULL,print.known=FALSE) {
+  # remove file extension from a filename character string
+  known.ext <- c("TXT","RDATA","TAB","DAT","CSV","VCF","GCM","BIM","MAP","FAM",
+                 "PFB","SH","R","CPP","H","DOC","DOCX","XLS","XLSX","PDF","JPG",
+                 "BMP","PNG","TAR","GZ","CNV","PL","PY","ZIP","ORG","RDA","DSC","BCK",
+                 "ABW","HTM","HTML",toupper(more.known))
+  if(is.null(fn)) { 
+    if(print.known) {
+      return(known.ext)
+    } else {
+      warning("couldn't remove extension, not a character()"); return(fn) 
+    }
+  } else {
+    if (all(is.na(fn))) { warning("couldn't remove extension, all values were NA"); return(fn) }
+  }
+  if(print.known) { cat("known file extensions:\n"); print(known.ext) }
+  if(!is.character(fn)) { warning("couldn't remove extension, not a character()"); return(fn) }
+  rmv.one <- function(X,known.ext) {
+    file.segs <- strsplit(paste(X),".",fixed=TRUE)[[1]]
+    lss <- length(file.segs)
+    if (lss>1) { 
+      if(only.known){
+        if(toupper(file.segs[lss]) %in% known.ext) {
+          out <- paste(file.segs[-lss],collapse=".") 
+        } else { 
+          out <- X
+        }
+      } else {
+        out <- paste(file.segs[-lss],collapse=".") 
+      }
+    } else {
+      out <- X 
+    }
+  }
+  return(sapply(fn,rmv.one,known.ext=known.ext))
+}
+
+#INTERNAL
+## COPY FROM READER, SO NCMISC DOESN'T DEPEND ON READER
+cat.path <- function(dir="",fn,pref="",suf="",ext="",must.exist=FALSE) 
+{
+  dir.ch <- .Platform$file.sep
+  if(is.list(fn) & is.ch(fn)) { fn <- unlist(fn) } #; 
+  if(length(dir)>1) { dir <- dir[1]; cat("only first dir was used\n") }
+  if(length(ext)>1) { ext <- ext[1]; cat("only first extension was used\n") }
+  if(length(grep(dir.ch,fn))>0) {
+    dir <- dirname(fn)  #split into dir and fn if fn has /'s
+    fn <- basename(fn)
+  }
+  dir <- dir.force.slash(dir)
+  if(ext!="") {
+    #make sure ext includes the dot
+    if(substr(ext,1,1)!=".")   { ext <- paste(".",ext,sep="") }
+    #if ext is already built into suffix or filename, remove it from there
+    fn <- rmv.ext(paste(fn))
+    suf <- rmv.ext(paste(suf))
+  }
+  location <- paste(dir,pref,fn,suf,ext,sep="")
+  if(any(!file.exists(location)) & must.exist) {
+    warn <- paste("required file",location,"not found!")
+    stop(warn)
+  }
+  return(location)
+}
+
+#INTERNAL
+## COPY FROM READER, SO NCMISC DOESN'T DEPEND ON READER
+#' Internal function used by cat.path
+dir.force.slash <- function(dir) {
+  # make sure 'dir' directory specification ends in a / character
+  if(!is.null(dim(dir))) { stop("dir should be a vector") }
+  dir <- paste(dir)
+  dir.ch <- .Platform$file.sep
+  the.test <- (dir!="" & substr(dir,nchar(dir),nchar(dir))!=dir.ch)
+  dir[the.test] <- paste(dir[the.test],dir.ch,sep="")
+  return(dir)
+}
+
+
+#INTERNAL
+## COPY FROM READER, SO NCMISC DOESN'T DEPEND ON READER
+#' Internal function to assess whether data is a character or list of characters
+is.ch <- function(x) { 
+  # is function for character() or list of characters
+  if(is.null(x)) { return(FALSE) }
+  pt1 <- is.character(x)
+  if(!pt1 & is.list(x)) { pt2 <- all(sapply(x,is.ch)) } else { pt2 <- pt1 }
+  return(as.logical(pt1 | pt2))
+}

@@ -7,8 +7,7 @@ make.package <- function(pkg,dir,dscr=NULL,pkg.rd=NULL,int.rd=NULL) {
   setwd(dir)
   must.use.package("roxygen2")
   package.skeleton(name = pkg,code_files=paste(pkg,".R",sep=""),force=T)
-  roxygenise(pkg,roxygen.dir=pkg,copy.package=FALSE,
-             unlink.target=FALSE)
+  roxygenise(package.dir=pkg)
   dsc <- paste("DESCRIPTION",pkg,sep="_"); if(file.exists(dsc)) { dscr <- dsc }
   dsc <- paste(pkg,"internal.Rd",sep="-"); if(file.exists(dsc)) { int.rd <- dsc }
   dsc <- paste(pkg,"package.Rd",sep="-"); if(file.exists(dsc)) { pkg.rd <- dsc }
