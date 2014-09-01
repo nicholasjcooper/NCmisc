@@ -9,8 +9,6 @@
 ###END NAMESPACE###
 
   
-# must add 'make.divisor' to the internal list
-
 
 #' Create variables from a list
 #' 
@@ -1362,6 +1360,7 @@ Rfile.index <- function(fn,below=TRUE,fn.out="out.htm", skip.indent=TRUE)
   fil.cont <- sapply(fn.list,paste,collapse="\n")
   #return(fil.cont)
   write.table(fil.cont,file=fn.out,quote=F,col.names=F)
+  cat("wrote html index to: ",fn.out,"\n")
   return(fn.list)
 }
 
