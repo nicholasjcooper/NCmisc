@@ -382,21 +382,37 @@ pctile <- function(dat,pc=0.01)
 #' Tests whether a command is installed and callable by system().
 #' Will return a warning if run on windows
 #'
-#' @param cmd list of commands to test
-#' @return returns true or false for each command 'cmd'
+#' @param cmd character vector of commands to test
+#' @param linux.mode logical, alternate way of command testing that only works on linux and
+#'  mac OS X, to turn this on, set to TRUE.
+#' @return returns true or false for each command in 'cmd'
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
-#' check.linux.install("ls") # should be standard
+#' check.linux.install("R") # should be standard
 #' check.linux.install(c("perl","sed","fake-cmd"))
-check.linux.install <- function(cmd=c("plink","perl","sed")) {
-  if(tolower(.Platform$OS.type)=="windows") { warning("function only valid on macOS and Linux") ; return(F) }
-  anz <- character(length(cmd))
-  for (dd in 1:length(cmd)) {
-    anz[dd] <- system(paste("if hash",cmd[dd],"2>/dev/null; then echo 'yes'; else echo 'no'; fi"),intern=T)
+check.linux.install <- function(cmd=c("plink","perl","sed"),linux.mode=FALSE) {
+  # define function to test any OS
+  sys.test <- function(x) {
+    X <- Sys.which(x); out <- T
+    if(is.na(X)) { out <- F } else { if(is.null(X)) { out <- F } else { if(X=="") { out <- F } } } 
+    if(out & !is.character(X)) { out <- F }
+    return(out)
   }
-  out <- (anz=="yes")
-  if(any(!out)) { warning(paste("command '",paste(cmd[!out],collapse=","),"' not installed",sep="")) }
+  if(linux.mode) {
+    if(tolower(.Platform$OS.type)=="windows") {
+      warning("function only works on OS X and Linux") ; return(F) 
+    } else {
+      anz <- character(length(cmd))
+      for (dd in 1:length(cmd)) {
+        anz[dd] <- system(paste("if hash",cmd[dd],"2>/dev/null; then echo 'yes'; else echo 'no'; fi"),intern=T)
+      }
+      out <- (anz=="yes")
+    }
+  } else {
+    out <- sapply(cmd,sys.test);
+  }
+  if(any(!out)) { warning(paste("command",if(length(cmd[!out])>1){ "s" }," '",paste(cmd[!out],collapse="', '"),"' not installed",sep="")) }
   names(out) <- cmd
   return(out)
 }
@@ -824,18 +840,18 @@ wait <- function(dur,unit="s",silent=TRUE) {
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
 #' # this function writes and removes a temporary file
-#' # run only if ok to do this in your working directory
+#' # run only if ok to do this in your temporary directory
 #' #not run# timeit(wait(0.1,"s") ,total.time=TRUE)
 #' #not run# timeit(wait(0.1,"s") ,total.time=FALSE)
 timeit <- function(expr,suppressResult=F,total.time=TRUE) {
   # function to measure in detail which function calls take the most time
   # during the evaluation of an expression. NB: will error with use of a trivial/instant expression
-  tf <- "Rproftemp.out"
-  Rprof("Rproftemp.out")
+  tf <- cat.path(tempdir(),"Rproftemp.out")
+  Rprof(tf)
   #do the stuff
   result <- { expr }
   Rprof()
-  rd <- readProfileData("Rproftemp.out")
+  rd <- readProfileData(tf)
   tab <- flatProfile(rd,F)
   if(total.time) { col <- 5 } else { col <- 3 }
   summary <- head(tab[rev(order(tab[,col])),],30)[,c(3,5)]
@@ -2419,26 +2435,28 @@ packages.loaded <- function(pcks="",...,cran.check=TRUE,repos=getRepositories())
 #' @return returns the list of file names produced (including path)
 #' @author Nicholas Cooper 
 #' @examples
+#' orig.dir <- getwd(); setwd(tempdir()); # move to temporary dir
 #' file.name <- "myfile.txt"
 #' writeLines(fakeLines(max.lines=1000),con=file.name)
 #' new.files <- file.split(file.name,size=50)
 #' unlink(new.files); unlink(file.name)
+#' setwd(orig.dir) # reset working dir to original
 file.split <- function(fn,size=50000,same.dir=FALSE,verbose=TRUE,suf="part") {
   if(!file.exists(fn)) { stop("file",fn,"did not exist")}
   if(!is.numeric(size)) { stop("size must be numeric") }
-  if(!check.linux.install("split")) { stop("command could not run as your system did not have the 'split' command installed")}
+  if(!all(check.linux.install(c("split","mv")))) { warning("this function could not run as your system did not have the 'split' command installed"); return(NULL) }
   size <- as.integer(round(size))
   FN <- basename(fn)
   EXT <- get.ext(fn)
   DIR <- dirname(fn)
   if(!same.dir) { DIR <- getwd() }
   file.out <- paste(rmv.ext(FN),ext=suf,sep="_")
-  cmd <- paste0("split -d -l ",size," ",fn," ",file.out)
+  cmd <- paste0("split -l ",size," ",fn," ",file.out)
   st <- proc.time()[3]
   jj <- suppressWarnings(suppressMessages(system(cmd,intern = TRUE, ignore.stderr = TRUE)))
   tot <- proc.time()[3]-st
   if(tot>3) {
-    cat("command '",cmd,"' was run using bash\n",sep="")
+    cat("command '",cmd,"' was run using system()\n",sep="")
   }
   new.filez <- list.files(pattern=file.out)
   if(length(new.filez)<1) { stop("no split part files produced, operation failed") }
