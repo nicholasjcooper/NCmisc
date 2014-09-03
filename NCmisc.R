@@ -2444,35 +2444,67 @@ packages.loaded <- function(pcks="",...,cran.check=TRUE,repos=getRepositories())
 file.split <- function(fn,size=50000,same.dir=FALSE,verbose=TRUE,suf="part") {
   if(!file.exists(fn)) { stop("file",fn,"did not exist")}
   if(!is.numeric(size)) { stop("size must be numeric") }
-  if(!all(check.linux.install(c("split","mv")))) { warning("this function could not run as your system did not have the 'split' command installed"); return(NULL) }
   size <- as.integer(round(size))
   FN <- basename(fn)
   EXT <- get.ext(fn)
   DIR <- dirname(fn)
   if(!same.dir) { DIR <- getwd() }
   file.out <- paste(rmv.ext(FN),ext=suf,sep="_")
-  cmd <- paste0("split -l ",size," ",fn," ",file.out)
-  st <- proc.time()[3]
-  jj <- suppressWarnings(suppressMessages(system(cmd,intern = TRUE, ignore.stderr = TRUE)))
-  tot <- proc.time()[3]-st
-  if(tot>3) {
-    cat("command '",cmd,"' was run using system()\n",sep="")
-  }
-  new.filez <- list.files(pattern=file.out)
-  if(length(new.filez)<1) { stop("no split part files produced, operation failed") }
-  tt <-  new.filez %in% cat.path("",new.filez,ext=EXT)
-  if(any(tt)) {
-    # files from a previous run may already be in the directory already with an extension
-    new.filez <- new.filez[-which(tt)]
-  }
-  new.fnz <- cat.path(DIR,new.filez,ext=EXT)
-  for (dd in 1:length(new.filez)) {
-    system(paste0("mv ",new.filez[dd]," ",new.fnz[dd]))
-  }
-  if(verbose) {
-    cat("split ",fn," into ",length(new.filez)," parts:\n\n  ",paste(new.fnz,collapse="\n  "),"\n",sep="")
+  if(!all(check.linux.install(c("split","mv")))) { 
+    new.fnz <- suppressWarnings(file.split.windows(fn,size,file.out,DIR,EXT,verbose))
+    if(length(new.fnz)<1) { stop("no split part files produced, operation failed") }
+  } else {
+    cmd <- paste0("split -l ",size," ",fn," ",file.out)
+    st <- proc.time()[3]
+    jj <- suppressWarnings(suppressMessages(system(cmd,intern = TRUE, ignore.stderr = TRUE)))
+    tot <- proc.time()[3]-st
+    if(tot>3) {
+      cat("command '",cmd,"' was run using system()\n",sep="")
+    }
+    new.filez <- list.files(pattern=file.out)
+    if(length(new.filez)<1) { stop("no split part files produced, operation failed") }
+    tt <-  new.filez %in% cat.path("",new.filez,ext=EXT)
+    if(any(tt)) {
+      # files from a previous run may already be in the directory already with an extension
+      new.filez <- new.filez[-which(tt)]
+    }
+    new.fnz <- cat.path(DIR,new.filez,ext=EXT)
+    for (dd in 1:length(new.filez)) {
+      system(paste0("mv ",new.filez[dd]," ",new.fnz[dd]))
+    }
+    if(verbose) {
+      cat("split ",fn," into ",length(new.filez)," parts:\n  ",paste(new.fnz,collapse="\n  "),"\n",sep="")
+    }
   }
   return(new.fnz)
+}
+
+
+# internal alternative to the split command for windows
+file.split.windows <- function(fn,size,file.out,DIR,EXT,verbose=TRUE) {
+  read.file <- file(fn)
+  open(con=read.file,open="r")
+  write.file <- file(cat.path(DIR,file.out,suf=1,ext=EXT))
+  open(con=write.file,open="w")
+  eof <- FALSE; cc <- -1; dd <- 0
+  filenum <- 1
+  while(!eof) {
+    cc <- cc + 1; dd <- dd + 1
+    next.line <- readLines(con=read.file,n=1)
+    eof <- length(next.line)==0
+    writeLines(next.line,con=write.file)
+    if(dd>(size-1) & !eof) {
+      filenum <- filenum + 1
+      close(con=write.file)
+      write.file <- file(cat.path(DIR,file.out,suf=filenum,ext=EXT))
+      open(con=write.file,open="w")
+      dd <- 0
+    }
+  }
+  close(con=read.file)
+  close(con=write.file)
+  if(verbose) { cat("split",cc,"lines of",fn,"into",filenum,"files:\n") }
+  return(cat.path(DIR,file.out,suf=1:filenum,ext=EXT))
 }
 
 
