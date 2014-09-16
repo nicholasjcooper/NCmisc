@@ -380,7 +380,7 @@ pctile <- function(dat,pc=0.01)
 #' Check whether a given system command is installed (e.g, bash)
 #' 
 #' Tests whether a command is installed and callable by system().
-#' Will return a warning if run on windows
+#' Will return a warning if run on windows when linux.more=TRUE
 #'
 #' @param cmd character vector of commands to test
 #' @param linux.mode logical, alternate way of command testing that only works on linux and
@@ -2431,6 +2431,12 @@ packages.loaded <- function(pcks="",...,cran.check=TRUE,repos=getRepositories())
 #' @param verbose logical, whether to report the resulting file names to the console
 #' @param suf character, suffix for the split files, default is 'part', the original file
 #'  extension will be appended after this suffix
+#' @param win logical, set to FALSE if running a standard windows setup (cmd.ext), and the file
+#' split will run natively in R. Set to TRUE if you have a unix-alike command system, such as
+#' CygWin, sh.exe, csh.exe, tsh.exe, running, and this will then check to see whether the POSIX
+#' 'split' command is present (this provides a speed advantage). If in doubt, windows users
+#' can always set win=TRUE; the only case where this will cause an issue is if there is a
+#' different command installed with the same name (i.e, 'split').
 #' @export
 #' @return returns the list of file names produced (including path)
 #' @author Nicholas Cooper 
@@ -2441,7 +2447,7 @@ packages.loaded <- function(pcks="",...,cran.check=TRUE,repos=getRepositories())
 #' new.files <- file.split(file.name,size=50)
 #' unlink(new.files); unlink(file.name)
 #' setwd(orig.dir) # reset working dir to original
-file.split <- function(fn,size=50000,same.dir=FALSE,verbose=TRUE,suf="part") {
+file.split <- function(fn,size=50000,same.dir=FALSE,verbose=TRUE,suf="part",win=TRUE) {
   if(!file.exists(fn)) { stop("file",fn,"did not exist")}
   if(!is.numeric(size)) { stop("size must be numeric") }
   size <- as.integer(round(size))
