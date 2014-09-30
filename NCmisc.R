@@ -419,7 +419,9 @@ check.linux.install <- function(cmd=c("plink","perl","sed"),linux.mode=FALSE) {
 
 
 #internal
-head2 <- function(X,...) { if(length(dim(X))==2) { prv.large(X,...,warn=F) } else { print(utils::head(X,...)) } }
+# why was 'utils' necessary???
+#head2 <- function(X,...) { if(length(dim(X))==2) { prv.large(X,...,warn=F) } else { print(utils::head(X,...)) } }
+head2 <- function(X,...) { if(length(dim(X))==2) { prv.large(X,...,warn=F) } else { print(head(X,...)) } }
 
 
 
