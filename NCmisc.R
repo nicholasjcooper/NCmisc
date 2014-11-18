@@ -1662,7 +1662,7 @@ display.var <- function(val,label,cnts=NULL) {
       if(exists("prv.big.matrix",mode="function")) {
         do.call("prv.big.matrix",args=list(val,name=label))
       } else {
-        warning("preview() needs the package bigmisc to display a big.matrix object")
+        warning("preview() needs the package bigpca to display a big.matrix object")
       }
       return(invisible())
     }
