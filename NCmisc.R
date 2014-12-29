@@ -10,6 +10,94 @@
 
   
 
+# 2 new not in index - NEW! - 
+
+# return indexes of the vector x that are outliers according to either
+# a SD cutoff, interquartile range, or percentile threshold, above (high) and/or
+# below (low) the mean/median.
+which.outlier <- function(x, thr=3, method=c("sd","iq","pc"), high=TRUE, low=TRUE) {
+  X <- x
+  #  x <- X
+  X <- narm(X)
+  X <- X[is.finite(X)]
+  if(length(X)>1) {
+    method <- substr(tolower(method),1,2)[1]
+    if(!method %in% c("sd","iq","pc")) { stop("invalid method, must be sd [std dev], iq [interquartile range], or pc [percentile]") }
+    if(method=="sd") {
+      stat <- sdna(X)
+      hi.thr <- meanna(X) + stat*thr
+      lo.thr <- meanna(X) - stat*thr
+    } else {
+      if(method=="iq") {
+        sl <- summary(X)
+        stat <- (sl[5]-sl[2])
+        hi.thr <- medianna(X) + stat*thr
+        lo.thr <- medianna(X) - stat*thr
+      } else {
+        stat <- pctile(X,pc=force.percentage(thr))
+        hi.thr <- stat[2] ; lo.thr <- stat[1]
+      }
+    }
+    if(high) {
+      outz <- X[X>hi.thr]
+    } else { outz <- NULL }
+    if(low) {
+      outz <- unique(c(outz,X[X<lo.thr]))
+    }
+    outz <- which(x %in% outz) # make sure indexes include the NA, Inf values
+    return(outz)
+  } else {
+    warning("outlier detection requires more than 1 datapoint")
+    return(numeric(0))
+  }
+}
+
+
+#pairs only may be pointless...?
+
+#' Obtain an index of all members of values with duplicates (ordered)
+#' 
+#' The standard 'duplicated' function, called with which(duplicated(x)) will 
+#' only return the indexes of the extra values, not the first instances. For instance
+#' in the sequence: A,B,A,C,D,B,E; it would return: 3,6. This function will also
+#' return the first instances, so in this example would give: 1,3,2,6 [note it
+#' will also be ordered]. This index can be helpful for diagnosis if duplicates 
+#' are unexpected, for instance in a data.frame, and you wish to compare the differences
+#' between the rows with the duplicate values occuring.
+#' @param x a vector that you wish to extract duplicates from
+#' @param pairs.only logical, whether to assume that there are exactly 2 copies
+#' for each duplicate - this will be slightly faster, and result in a slightly
+#' easier to parse output as you know every second value will be the index.
+#' If this is used when there are more than 2 copies of some 'x', additional
+#' copies will be left out of the result. If pairs.only=FALSE, then sets 
+#' of any length can be returned.
+#' @return vector of indices of which values in 'x' are duplicates (including
+#' the first observed value in pairs, or sets of >2), ordered by set, then
+#' by appearance in x. If pairs.only=FALSE, then sets can have length >=2,
+#' or if pairs.only = TRUE, then sets will all have length =2, and any
+#' in-between duplicates will be left out of the listing. Only use
+#' @examples
+#' dup.pairs(c(1,1,2,2,3,4,5,6,2,2,2,2,12,1,3,3,1))
+dup.pairs <- function(x,pairs.only=FALSE) {
+  if(pairs.only) {
+    # fast if you know the max is pairs #
+    df <- cbind(which(rev(duplicated(rev(x)))),which(duplicated(x)))
+    return(as.vector(t(df)))
+  } else {
+    dx <- duplicated(x)
+    other.dups <- which(dx)
+    not.and.first <- which(!dx)
+    ind.dups <- not.and.first[which(x[not.and.first] %in% x[other.dups])]
+    xo <- x[other.dups]
+    vc <- vector()
+    for (cc in 1:length(ind.dups)) {
+      vc <- c(vc,ind.dups[cc],other.dups[which(xo %in% x[ind.dups[cc]])])
+    }
+    return(vc)
+  }
+}
+
+
 #' Create variables from a list
 #' 
 #' Places named objects in a list into the working environment as individual variables.
