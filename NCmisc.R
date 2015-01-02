@@ -1,7 +1,7 @@
 ###NAMESPACE ADDITIONS###
 # Depends: R (>= 2.10), grDevices, graphics, stats, utils, reader
 # Imports: tools, proftools
-# Suggests: KernSmooth, BiocInstaller
+# Suggests: KernSmooth, BiocInstaller, Matrix
 # importFrom(proftools, readProfileData, flatProfile)
 # importFrom(tools, toHTML)
 # import(grDevices, graphics, stats, utils)
@@ -25,11 +25,12 @@
 #' @return returns logical (TRUE/FALSE), or if the function is not S4 will return an error,
 #' although this could potentially be because the function's package has not been loaded.
 #' @examples
-#' has.method(chr,"GRanges")
-#' has.method("chr","GRanges")
-#' g.example <- rranges()
-#' has.method(start, g.example)
-#' has.method(duplicated, g.example) # no such method
+#' require(Matrix); require(methods)
+#' has.method("t","dgeMatrix") # t() is the transpose method for a dgeMatrix object
+#' has.method(t,"dgeMatrix") # also works without quotes for the method
+#' m.example <- as(matrix(rnorm(100),ncol=5),"dgeMatrix")
+#' has.method(t, m.example) # works with an instance of an object type too
+#' has.method("band", m.example) # band is a function for a 'denseMatrix' but not 'dgeMatrix'
 #' ## not run # has.method("notAFunction","GRanges") # should return error
 has.method <- function(FUN,CLASS) {
   if(!is.character(CLASS)) { CLASS <- class(CLASS) }
@@ -114,6 +115,8 @@ p.to.Z <- function(p) {
 #' in a way that allows maximum precision for small p-values.
 #' @param Z Z score, numeric, scalar, vector or matrix, or other types coercible
 #'  using as.numeric()
+#' @param warn logical, whether to give a warning for very low p-values when
+#' precision limits are exceeded.
 #' @return p-valuues with the same dimension as the input
 #' @export
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
@@ -121,8 +124,8 @@ p.to.Z <- function(p) {
 #' @examples
 #' Z.to.p("1.96")
 #' Z.to.p(p.to.Z(0.0001))
-#' Z.to.p(37, T)
-#' Z.to.p(39, T) # maximum precision exceeded, warnings on
+#' Z.to.p(37, TRUE)
+#' Z.to.p(39, TRUE) # maximum precision exceeded, warnings on
 #' Z.to.p(39) # maximum precision exceeded, warnings off
 Z.to.p <- function(Z, warn=FALSE) {
   if(!is.numeric(Z)) { Z <- as.numeric(Z) }
@@ -136,8 +139,15 @@ Z.to.p <- function(Z, warn=FALSE) {
 
 #' Posterior probability of association function
 #'
-#' @param p p-value you want to test [p<0.367]
+#' Estimate the probability of your hypothesis being true,
+#' given the observed p-value and a prior probability of
+#' the hypothesis being true.
+#' @param p p-value you want to test [p<0.367], or 'bayes factor'
 #' @param prior prior odds for the hypothesis (Ha) being tested
+#' @param BF logical, set to TRUE if you have entered a bayes factor
+#' as 'p' rather than a p-value
+#' @param quiet logical, whether to display verbose information for
+#' calculation
 #' @return prints calculations, then returns the posterior 
 #' probability of association given the observed p-value 
 #' under the specified prior
@@ -188,7 +198,7 @@ ppa <- function(p=.05, prior=.5, BF=NULL, quiet=TRUE) {
 #' @param x numeric, or coercible, the vector to test for outliers
 #' @param thr numeric, threshold for cutoff, e.g, when method="sd", standard deviations,
 #' when 'iq', interquartile ranges (thr=1.5 is most typical here), or when 'pc', you might
-#' select the extreme 1%, 5%, etc.
+#' select the extreme 1\%, 5\%, etc.
 #' @param method character, one of "sd","iq" or "pc", selecting whether to test for outliers
 #' by standard deviation, interquartile range, or percentile.
 #' @param high logical, whether to test for outliers greater than the mean
@@ -218,15 +228,15 @@ which.outlier <- function(x, thr=2, method=c("sd","iq","pc"), high=TRUE, low=TRU
     method <- substr(tolower(method),1,2)[1]
     if(!method %in% c("sd","iq","pc")) { stop("invalid method, must be sd [std dev], iq [interquartile range], or pc [percentile]") }
     if(method=="sd") {
-      stat <- sdna(X)
-      hi.thr <- meanna(X) + stat*thr
-      lo.thr <- meanna(X) - stat*thr
+      stat <- sd(X,na.rm=T)
+      hi.thr <- mean(X,na.rm=T) + stat*thr
+      lo.thr <- mean(X,na.rm=T) - stat*thr
     } else {
       if(method=="iq") {
         sl <- summary(X)
         stat <- (sl[5]-sl[2])
-        hi.thr <- medianna(X) + stat*thr
-        lo.thr <- medianna(X) - stat*thr
+        hi.thr <- median(X,na.rm=T) + stat*thr
+        lo.thr <- median(X,na.rm=T) - stat*thr
       } else {
         stat <- pctile(X,pc=force.percentage(thr))
         hi.thr <- stat[2] ; lo.thr <- stat[1]
@@ -248,7 +258,7 @@ which.outlier <- function(x, thr=2, method=c("sd","iq","pc"), high=TRUE, low=TRU
 
 
 
-#' Obtain an index of all members of values with duplicates (ordered)
+#' Obtain an index of all instances of values with duplicates (ordered)
 #' 
 #' The standard 'duplicated' function, called with which(duplicated(x)) will 
 #' only return the indexes of the extra values, not the first instances. For instance
@@ -262,9 +272,8 @@ which.outlier <- function(x, thr=2, method=c("sd","iq","pc"), high=TRUE, low=TRU
 #' @param x a vector that you wish to extract duplicates from
 #' @return vector of indices of which values in 'x' are duplicates (including
 #' the first observed value in pairs, or sets of >2), ordered by set, then
-#' by appearance in x. If pairs.only=FALSE, then sets can have length >=2,
-#' or if pairs.only = TRUE, then sets will all have length =2, and any
-#' in-between duplicates will be left out of the listing. Only use
+#' by appearance in x.
+#' @export
 #' @examples
 #' set <- c(1,1,2,2,3,4,5,6,2,2,2,2,12,1,3,3,1)
 #' dup.pairs(set) # shows the indexes (ordered) of duplicated values
@@ -1458,7 +1467,7 @@ search.cran <- function(txt,repos="",all.repos=FALSE) {
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
-#' require BiocInstaller
+#' require(BiocInstaller)
 #' repos <- "http://cran.ma.imperial.ac.uk/" # OR: repos <- getOption("repos")
 #' getRepositories(table=TRUE) # shows all available
 #' getRepositories(2:5,FALSE) # returns index for all bioconductor repositories (on my system at least)
@@ -1507,7 +1516,7 @@ getRepositories <- function(ind = NULL,table=FALSE) {
 check.bio <- function() {
 	if("BiocInstaller" %in% installed.packages()) {
 		do.call("require",args=list("BiocInstaller"))
-		return(BiocInstaller::biocVersion())
+		return(do.call("biocVersion"))
 	} else {
 		warning("bioconductor does not appear to be installed - this function works better if it is")
 		stop("deliberately throw error for 'tryCatch' to catch")
