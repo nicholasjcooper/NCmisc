@@ -1,24 +1,218 @@
 ###NAMESPACE ADDITIONS###
 # Depends: R (>= 2.10), grDevices, graphics, stats, utils, reader
-# Imports: tools, proftools, BiocInstaller
-# Suggests: KernSmooth
+# Imports: tools, proftools
+# Suggests: KernSmooth, BiocInstaller
 # importFrom(proftools, readProfileData, flatProfile)
 # importFrom(tools, toHTML)
-# importFrom(BiocInstaller, biocVersion)
 # import(grDevices, graphics, stats, utils)
 ###END NAMESPACE###
 
-  
+## add check.bio() to internals list
+# no longer want to: importFrom(BiocInstaller, biocVersion)
 
-# 2 new not in index - NEW! - 
 
-# return indexes of the vector x that are outliers according to either
-# a SD cutoff, interquartile range, or percentile threshold, above (high) and/or
-# below (low) the mean/median.
-which.outlier <- function(x, thr=3, method=c("sd","iq","pc"), high=TRUE, low=TRUE) {
+# 7 new not in index - NEW! - 
+
+
+#' Determine whether a function can be applied to an S4 class/object
+#' 
+#' Wrapper for 'showMethods', allows easy testing whether a function
+#' (can be specified as a string, or the actual function itself (FUN)) can be
+#' applied to a specific object or class of objects (CLASS)
+#' @param FUN the function to test, can be specified as a string, or the actual function itself
+#' @param CLASS  a specific object or a class of objects specified by a string, e.g, "GRanges"
+#' @export
+#' @return returns logical (TRUE/FALSE), or if the function is not S4 will return an error,
+#' although this could potentially be because the function's package has not been loaded.
+#' @examples
+#' has.method(chr,"GRanges")
+#' has.method("chr","GRanges")
+#' g.example <- rranges()
+#' has.method(start, g.example)
+#' has.method(duplicated, g.example) # no such method
+#' ## not run # has.method("notAFunction","GRanges") # should return error
+has.method <- function(FUN,CLASS) {
+  if(!is.character(CLASS)) { CLASS <- class(CLASS) }
+  if(!is.character(FUN) & !is.function(FUN)) { stop("FUN must be an R function, as a string or function") }
+  test <- showMethods(FUN,classes=CLASS,printTo=F)
+  if(length(grep("not an S4 generic function",test))>0) {
+    stop(FUN," was not an S4 generic function or required package not loaded")
+  }
+  return(!(length(grep("No methods",test))>0))
+}
+
+
+#' Function to add commas for large numbers
+#' 
+#' Often for nice presentation of genomic locations it is helpful
+#' to insert commas every 3 digits when numbers are large. This function
+#' makes it simple and allows specification of digits if a decimal number
+#' is in use.
+#' @param x a vector of numbers, either as character, integer or numeric form
+#' @param digits integer, if decimal numbers are in use, how many digits to display, 
+#' same as input to base::round()
+#' @return returns a character vector with commas inserted every 3 digits
+#' @export
+#' @examples
+#' comify("23432")
+#' comify(x=c(1,25,306,999,1000,43434,732454,65372345326))
+#' comify(23432.123456)
+#' comify(23432.123456,digits=0)
+comify <- function(x,digits=2) {
+  if(length(Dim(x))>1) { stop("x must be a vector") }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           if(length(x)>1) { return(sapply(x, comify, digits=digits)) }
+  x <- round(as.numeric(x),digits=digits)
+  x <- (paste(x)); dec <- ""
+  if(any(grep(".",x))) {
+    x.plus.dp <- strsplit(x,".",fixed=TRUE)[[1]]
+    if(length(x.plus.dp)>2) { stop("x contained invalid decimal point(s)") }
+    xx <- x.plus.dp[1]
+    if(length(x.plus.dp)==2) { dec <- paste(".",x.plus.dp[2],sep="") }
+  } else { xx <- x }
+  splt <- strsplit(xx,"")[[1]]
+  nm <- rev(splt)
+  cnt <- 0; new <- NULL
+  LL <- length(nm)
+  for (cc in 1:LL) {
+    new <- c(nm[cc],new)
+    cnt <- cnt+1
+    if(cnt>2 & cc!=LL) { new <- c(",",new); cnt <- 0 }
+  }
+  return(paste(paste(new,collapse=""),dec,sep=""))
+}
+
+
+
+#' Convert p-values to Z-scores
+#' 
+#' Simple conversion of two-tailed p-values to Z-scores. Written
+#' in a way that allows maximum precision for small p-values.
+#' @param p p-values (between 0 and 1), numeric, scalar, vector or matrix, 
+#' or other types coercible using as.numeric()
+#' @return Z scores with the same dimension as the input
+#' @export
+#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @seealso Z.to.p
+#' @examples
+#' p.to.Z(0.0001)
+#' p.to.Z("5E-8")
+#' p.to.Z(c(".05",".01",".005"))
+#' p.to.Z(matrix(runif(16),nrow=4))
+p.to.Z <- function(p) { 
+  if(!is.numeric(p)) { p <- as.numeric(p) }
+  if(!is.numeric(p)) { stop("p was not coercible to numeric type") }
+  ll <- length(which(p<0 | p>1))
+  if(ll>0) { warning(ll, " invalid p-values set to NA"); p[p<0 | p>1] <- NA }
+  O <- qnorm((p/2),F)
+  O[!is.finite(O)] <- NA
+  return(-O) 
+}
+
+#' Convert Z-scores to p-values
+#' 
+#' Simple conversion of Z-scores to two-tailed p-values. Written
+#' in a way that allows maximum precision for small p-values.
+#' @param Z Z score, numeric, scalar, vector or matrix, or other types coercible
+#'  using as.numeric()
+#' @return p-valuues with the same dimension as the input
+#' @export
+#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @seealso p.to.Z
+#' @examples
+#' Z.to.p("1.96")
+#' Z.to.p(p.to.Z(0.0001))
+#' Z.to.p(37, T)
+#' Z.to.p(39, T) # maximum precision exceeded, warnings on
+#' Z.to.p(39) # maximum precision exceeded, warnings off
+Z.to.p <- function(Z, warn=FALSE) {
+  if(!is.numeric(Z)) { Z <- as.numeric(Z) }
+  if(!is.numeric(Z)) { stop("Z was not coercible to numeric type") }
+  if(any(abs(Z)>=38) & warn) { warning("maximum precision exceeded, p < 10^-300") }
+  O <- 2*pnorm(-abs(Z))
+  O[!is.finite(O)] <- NA
+  return(O) 
+}
+
+
+#' Posterior probability of association function
+#'
+#' @param p p-value you want to test [p<0.367]
+#' @param prior prior odds for the hypothesis (Ha) being tested
+#' @return prints calculations, then returns the posterior 
+#' probability of association given the observed p-value 
+#' under the specified prior
+#' @export
+#' @references
+#' Equations 1, 2 from
+#' http://www.readcube.com/articles/10.1038/nrg2615
+#' Equations 2, 3 from
+#' http://www.tandfonline.com/doi/pdf/10.1198/000313001300339950
+#' @examples
+#' ps <- rep(c(.05,.01),3)
+#' prs <- rep(c(.05,.50,.90),each=2)
+#' mapply(ps,prs,FUN=ppa)  # replicate Nuzzo 2014 table
+#' # try with bayes factors
+#' ppa(BF=3,prior=.9)
+#' ppa(BF=10,prior=.5)
+ppa <- function(p=.05, prior=.5, BF=NULL, quiet=TRUE) {
+  if(any(p<=0 | p>=(1/exp(1)))) { stop("invalid p value") }
+  if(any(prior<=0 | prior>=(1))) { stop("invalid prior") }
+  if(is.null(BF)) { 
+    # calculate bayes factors from p, if BF not entered
+    if(!quiet) { cat("\np value:",p,"with prior:",prior,"\n") }
+    BF <- (-exp(1)*(p)*log(p) )^(-1)
+    # NB: ^invert BF so in terms of % support for Ha 
+  } else { 
+    if(!quiet) { cat("\nprior:",prior,"with ") }
+    if(any(BF<0)) { stop("invalid bayes factor (BF)") }
+  }
+  if(!quiet) { cat("bayes factor:",BF,"\n") }
+  P0 <- (prior/(1-prior)) * (BF) 
+  if(!quiet) { cat("posterior odds = bayes factor * H1/H0 prior:",P0,"\n") }
+  ppa <- (P0/(1+P0)) 
+  if(!quiet) { cat("posterior probability of association:",ppa,"\n") }
+  return(ppa)
+}
+
+
+
+#' Return vector indexes of statistical univariate outliers
+#'
+#' Performs simplistic outlier detection and returns indexes for outliers.
+#' Acts like the which() function, return indices of elements of a vector
+#' satisfying the condition, which by default are outliers exceeding 2 SD
+#' above or below the mean. However, the threshold can be specified, only
+#' high or low values can be considered outliers, and percentile and interquartile
+#' range thresholds can also be used.
+#'
+#' @param x numeric, or coercible, the vector to test for outliers
+#' @param thr numeric, threshold for cutoff, e.g, when method="sd", standard deviations,
+#' when 'iq', interquartile ranges (thr=1.5 is most typical here), or when 'pc', you might
+#' select the extreme 1%, 5%, etc.
+#' @param method character, one of "sd","iq" or "pc", selecting whether to test for outliers
+#' by standard deviation, interquartile range, or percentile.
+#' @param high logical, whether to test for outliers greater than the mean
+#' @param low logical, whether to test for outliers less than the mean
+#' @return indexes of the vector x that are outliers according to either
+#' a SD cutoff, interquartile range, or percentile threshold, above (high) and/or
+#' below (low) the mean/median.
+#' @export
+#' @examples
+#' test.vec <- rnorm(200)
+#' summary(test.vec)
+#' ii <- which.outlier(test.vec) # 2 SD outliers
+#' prv(ii); vals <- test.vec[ii]; prv(vals)
+#' ii <- which.outlier(test.vec,1.5,"iq") # e.g, 'stars' on a box-plot
+#' prv(ii)
+#' ii <- which.outlier(test.vec,5,"pc",low=FALSE) # only outliers >mean
+#' prv(ii)
+which.outlier <- function(x, thr=2, method=c("sd","iq","pc"), high=TRUE, low=TRUE) {
+  if(!is.numeric(x)) { x <- as.numeric(x) }
+  if(!is.numeric(thr)) { stop("thr must be numeric") }
   X <- x
   #  x <- X
   X <- narm(X)
+  if(!is.numeric(x)) { stop("x must be numeric, or coercible to numeric") }
   X <- X[is.finite(X)]
   if(length(X)>1) {
     method <- substr(tolower(method),1,2)[1]
@@ -53,7 +247,6 @@ which.outlier <- function(x, thr=3, method=c("sd","iq","pc"), high=TRUE, low=TRU
 }
 
 
-#pairs only may be pointless...?
 
 #' Obtain an index of all members of values with duplicates (ordered)
 #' 
@@ -63,27 +256,20 @@ which.outlier <- function(x, thr=3, method=c("sd","iq","pc"), high=TRUE, low=TRU
 #' return the first instances, so in this example would give: 1,3,2,6 [note it
 #' will also be ordered]. This index can be helpful for diagnosis if duplicates 
 #' are unexpected, for instance in a data.frame, and you wish to compare the differences
-#' between the rows with the duplicate values occuring.
+#' between the rows with the duplicate values occuring. Also, duplicate values are sorted
+#' to be together in the listing, which can help for manual troubleshooting of undesired
+#' duplicates.
 #' @param x a vector that you wish to extract duplicates from
-#' @param pairs.only logical, whether to assume that there are exactly 2 copies
-#' for each duplicate - this will be slightly faster, and result in a slightly
-#' easier to parse output as you know every second value will be the index.
-#' If this is used when there are more than 2 copies of some 'x', additional
-#' copies will be left out of the result. If pairs.only=FALSE, then sets 
-#' of any length can be returned.
 #' @return vector of indices of which values in 'x' are duplicates (including
 #' the first observed value in pairs, or sets of >2), ordered by set, then
 #' by appearance in x. If pairs.only=FALSE, then sets can have length >=2,
 #' or if pairs.only = TRUE, then sets will all have length =2, and any
 #' in-between duplicates will be left out of the listing. Only use
 #' @examples
-#' dup.pairs(c(1,1,2,2,3,4,5,6,2,2,2,2,12,1,3,3,1))
-dup.pairs <- function(x,pairs.only=FALSE) {
-  if(pairs.only) {
-    # fast if you know the max is pairs #
-    df <- cbind(which(rev(duplicated(rev(x)))),which(duplicated(x)))
-    return(as.vector(t(df)))
-  } else {
+#' set <- c(1,1,2,2,3,4,5,6,2,2,2,2,12,1,3,3,1)
+#' dup.pairs(set) # shows the indexes (ordered) of duplicated values
+#' set[dup.pairs(set)] # shows the values that were duplicated (only 1's, 2's and 3's)
+dup.pairs <- function(x) {
     dx <- duplicated(x)
     other.dups <- which(dx)
     not.and.first <- which(!dx)
@@ -94,7 +280,6 @@ dup.pairs <- function(x,pairs.only=FALSE) {
       vc <- c(vc,ind.dups[cc],other.dups[which(xo %in% x[ind.dups[cc]])])
     }
     return(vc)
-  }
 }
 
 
@@ -106,9 +291,10 @@ dup.pairs <- function(x,pairs.only=FALSE) {
 #' from which the function was called.
 #' @param list list, with named objects, each element will become a named variable in
 #' the current environment
-#' @return New variables will be added to the current environment. Any already existing
-#' with the same name will be overwritten.
+#' @return New variables will be added to the current environment. Use with care as any 
+#' already existing with the same name will be overwritten.
 #' @export
+#' @seealso base::list2env
 #' @examples
 #' list.to.env(list(myChar="a string", myNum=1234, myList=list("list within a list",c(1,2,3))))
 #' print(myChar)
@@ -1216,6 +1402,7 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
 #' # setRepositories(ind=1:2) # for the session will by default search bioconductor packages too
 #' search.cran("useful",repos)
 #' search.cran(c("hmm","markov","hidden"),repos=repos)
+#' require(BiocInstaller)
 #' search.cran(c("snpStats","genoset","limma"),all.repos=TRUE)
 search.cran <- function(txt,repos="",all.repos=FALSE) {
   goty <- getOption("pkgType"); 
@@ -1271,6 +1458,7 @@ search.cran <- function(txt,repos="",all.repos=FALSE) {
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
+#' require BiocInstaller
 #' repos <- "http://cran.ma.imperial.ac.uk/" # OR: repos <- getOption("repos")
 #' getRepositories(table=TRUE) # shows all available
 #' getRepositories(2:5,FALSE) # returns index for all bioconductor repositories (on my system at least)
@@ -1315,6 +1503,18 @@ getRepositories <- function(ind = NULL,table=FALSE) {
 }
 
 
+# internal
+check.bio <- function() {
+	if("BiocInstaller" %in% installed.packages()) {
+		do.call("require",args=list("BiocInstaller"))
+		return(BiocInstaller::biocVersion())
+	} else {
+		warning("bioconductor does not appear to be installed - this function works better if it is")
+		stop("deliberately throw error for 'tryCatch' to catch")
+	}
+}
+
+
 
 # internal function stolen from 'tools'
 tools_read_repositories <- function (file) 
@@ -1322,7 +1522,7 @@ tools_read_repositories <- function (file)
   # try to replicate the constant 'tools:::.BioC_version_associated_with_R_version'
   get.bioc.version <- function() {
     biocVers <- tryCatch({
-      BiocInstaller::biocVersion() # recent BiocInstaller
+      check.bio() # recent BiocInstaller
     }, error=function(...) {         # no / older BiocInstaller
       numeric_version(Sys.getenv("R_BIOC_VERSION", "2.13"))
     })
@@ -2212,7 +2412,7 @@ force.scalar <- function(x,default=1, min=-10^10, max=10^10) {
 #' force.percentage(NA,default=0.25)
 force.percentage <- function(x,default=.5) {
   x <- force.scalar(x,default=default, min=0,max=100)
-  while(x>1) { x <- x/100 }
+  while(x>=1) { x <- x/100 }
   return(x)
 }
 
@@ -2483,6 +2683,7 @@ suck.bytes <- function(tot1,GB=TRUE) {
 #' @export
 #' @author Nicholas Cooper 
 #' @examples
+#' require(BiocInstaller)
 #' packages.loaded("NCmisc","reader")
 #' packages.loaded(c("bigpca","nonsenseFailTxt")) # both not found, as second not real
 #' packages.loaded(c("bigpca","nonsenseFailTxt"),cran.check=FALSE) # hide warning
