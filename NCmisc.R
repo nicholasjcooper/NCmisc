@@ -1,10 +1,10 @@
-###NAMESPACE ADDITIONS###
 # Depends: R (>= 2.10), grDevices, graphics, stats, utils, reader
-# Imports: tools, proftools
+# Imports: tools, proftools, plyr
 # Suggests: KernSmooth, BiocInstaller, Matrix
 # importFrom(proftools, readProfileData, flatProfile)
 # importFrom(tools, toHTML)
 # import(grDevices, graphics, stats, utils)
+# importFrom(plyr, getParseData, filter)
 ###END NAMESPACE###
 
 ## add check.bio() to internals list
@@ -21,6 +21,10 @@
 #' applied to a specific object or class of objects (CLASS)
 #' @param FUN the function to test, can be specified as a string, or the actual function itself
 #' @param CLASS  a specific object or a class of objects specified by a string, e.g, "GRanges"
+#' @param false.if.error logical, the default value is FALSE, in which case an error is returned
+#' when FUN is not an S4 generic function. If this parameter is set to TRUE, 'FALSE' will
+#' be returned with a warning instead of an error.
+#' @param ... additional arguments to showMethods(), e.g, 'where' to specify the environment
 #' @export
 #' @return returns logical (TRUE/FALSE), or if the function is not S4 will return an error,
 #' although this could potentially be because the function's package has not been loaded.
@@ -32,12 +36,25 @@
 #' has.method(t, m.example) # works with an instance of an object type too
 #' has.method("band", m.example) # band is a function for a 'denseMatrix' but not 'dgeMatrix'
 #' ## not run # has.method("notAFunction","GRanges") # should return error
-has.method <- function(FUN,CLASS) {
+#' has.method("notAFunction","GRanges",TRUE) # should return FALSE and a warning
+has.method <- function(FUN,CLASS, false.if.error=FALSE, ...) {
   if(!is.character(CLASS)) { CLASS <- class(CLASS) }
-  if(!is.character(FUN) & !is.function(FUN)) { stop("FUN must be an R function, as a string or function") }
-  test <- showMethods(FUN,classes=CLASS,printTo=F)
+  if(!is.character(FUN) & !is.function(FUN)) { 
+    if(false.if.error) {
+      warning("FUN should be an R function, as a string or function, returning 'FALSE'")
+      return(FALSE)
+    } else {
+      stop("FUN must be an R function, as a string or function") 
+    }
+  }
+  test <- showMethods(FUN,classes=CLASS,printTo=FALSE,...)
   if(length(grep("not an S4 generic function",test))>0) {
-    stop(FUN," was not an S4 generic function or required package not loaded")
+    if(false.if.error) {
+      warning("'",FUN,"' was not an S4 generic function or required package not loaded, returning 'FALSE'")
+      return(FALSE)
+    } else {
+      stop("'",FUN,"' was not an S4 generic function or required package not loaded")
+    }
   }
   return(!(length(grep("No methods",test))>0))
 }
@@ -1628,6 +1645,7 @@ Mode <- function(x,multi=FALSE,warn=FALSE) {
 #' @param skip.indent whether to skip functions that are indented,
 #'  the assumption being they are functions within functions
 #' @return creates an html file with name and description of each function
+#' @seealso list.functions.in.file
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
@@ -1687,6 +1705,41 @@ Rfile.index <- function(fn,below=TRUE,fn.out="out.htm", skip.indent=TRUE)
   return(fn.list)
 }
 
+
+#' Show all functions used in an R script file, by package
+#'
+#' Parses all functions called by an R script and then lists
+#' them by package. Wrapper for 'getParseData'. Inspired by
+#' 'hrbrmstr', on StackExchange 3/1/2015. May be of great
+#' use for those developing a package to help see what 
+#' namespace 'importsFrom' calls will be required.
+#' @param filename path to an R file containing R code.
+#' @param alphabetic logical, whether to list functions alphabetically.
+#' If FALSE, will list in order of appearance.
+#' @return Returns a list. Parses all functions called by an R script 
+#' and then lists them by package. Those from the script itself are listed
+#' under '.GlobalEnv' and any functions that may originate
+#' from multiple packages have all possibilities listed. Those listed under
+#' 'character(0)' are those for which a package could not be found- may be
+#' functions within functions, or from packages that aren't loaded.
+#' @seealso Rfile.index
+#' @export 
+#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @examples
+#' # not run:  rfile <- file.choose() # choose an R script file with functions
+#' # not run:  list.functions.in.file(rfile)
+list.functions.in.file <- function(filename,alphabetic=TRUE) {
+  # from hrbrmstr, StackExchange 3/1/2015
+  if(!is.file(filename,getwd())) { stop("couldn't find file ",filename) }
+  if(!get.ext(filename)=="R") { warning("expecting *.R file, will try to proceed") }
+  requireNameSpace("dplyr")
+  tmp <- getParseData(parse(filename, keep.source=TRUE))
+  tmp <- filter(tmp,token=="SYMBOL_FUNCTION_CALL")
+  tmp <- unique(if(alphabetic) { sort(tmp$text) } else { tmp$text })
+  src <- paste(as.vector(sapply(tmp, find)))
+  outlist <- tapply(tmp,factor(src),c)
+  return(outlist)
+}
 
 
 
@@ -2226,7 +2279,7 @@ cor.with <- function(x,r=.5,preserve=FALSE,mn=NA,st=NA) {
 #' Summarise the dimensions and type of available R example datasets
 #' 
 #' This function will parse the current workspace to see what R datasets
-#' are available. Using the toHTML function from the tools package to interpret
+#' are available. Using the toHTML function from the 'tools' package to interpret
 #' the data() call, each dataset is examined in turn for type and dimensionality.
 #' Can also use a filter for dataset types, to only show, for instance, matrix 
 #' datasets. Also you can specify whether to only look for base datasets, or to
@@ -2905,3 +2958,6 @@ is.ch <- function(x) {
   if(!pt1 & is.list(x)) { pt2 <- all(sapply(x,is.ch)) } else { pt2 <- pt1 }
   return(as.logical(pt1 | pt2))
 }
+
+
+
