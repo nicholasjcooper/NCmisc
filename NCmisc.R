@@ -110,7 +110,7 @@ comify <- function(x,digits=2) {
 #' @return Z scores with the same dimension as the input
 #' @export
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
-#' @seealso Z.to.p
+#' @seealso \code{\link{Z.to.p}}
 #' @examples
 #' p.to.Z(0.0001)
 #' p.to.Z("5E-8")
@@ -137,7 +137,7 @@ p.to.Z <- function(p) {
 #' @return p-valuues with the same dimension as the input
 #' @export
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
-#' @seealso p.to.Z
+#' @seealso \code{\link{p.to.Z}}
 #' @examples
 #' Z.to.p("1.96")
 #' Z.to.p(p.to.Z(0.0001))
@@ -1645,7 +1645,7 @@ Mode <- function(x,multi=FALSE,warn=FALSE) {
 #' @param skip.indent whether to skip functions that are indented,
 #'  the assumption being they are functions within functions
 #' @return creates an html file with name and description of each function
-#' @seealso list.functions.in.file
+#' @seealso \code{\link{list.functions.in.file}}
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
@@ -1722,7 +1722,7 @@ Rfile.index <- function(fn,below=TRUE,fn.out="out.htm", skip.indent=TRUE)
 #' from multiple packages have all possibilities listed. Those listed under
 #' 'character(0)' are those for which a package could not be found- may be
 #' functions within functions, or from packages that aren't loaded.
-#' @seealso Rfile.index
+#' @seealso \code{\link{Rfile.index}}
 #' @export 
 #' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
 #' @examples
