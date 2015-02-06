@@ -606,9 +606,19 @@ Unlist <- function(obj,depth=1) {
         if(is.list(obj[[cc]])) {
           if(depth<=1) {
             names(obj[[cc]]) <- NULL 
-            obj[[cc]] <- unlist(obj[[cc]])
+            val <- unlist(obj[[cc]])
+            if(is.null(val)) {
+              obj[cc] <- list(NULL)
+            } else {
+              obj[[cc]] <- val            
+            }
           } else {
-            obj[[cc]] <- Unlist(obj[[cc]],depth=depth-1)
+            val <- Unlist(obj[[cc]],depth=depth-1)
+            if(is.null(val)) {
+              obj[cc] <- list(NULL)
+            } else {
+              obj[[cc]] <- val            
+            }
           }
         }
       }
@@ -618,6 +628,7 @@ Unlist <- function(obj,depth=1) {
     return(obj) 
   }
 }
+
 
 
 
