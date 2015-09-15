@@ -1,11 +1,14 @@
+###NAMESPACE ADDITIONS###
 # Depends: R (>= 2.10), grDevices, graphics, stats, utils, reader
 # Imports: tools, proftools, plyr
 # Suggests: KernSmooth, BiocInstaller, Matrix
 # importFrom(proftools, readProfileData, flatProfile)
 # importFrom(tools, toHTML)
 # import(grDevices, graphics, stats, utils)
-# importFrom(plyr, getParseData, filter)
 ###END NAMESPACE###
+
+# importFrom(dplyr, filter)
+
 
 ## add check.bio() to internals list
 # no longer want to: importFrom(BiocInstaller, biocVersion)
@@ -902,6 +905,7 @@ toheader <- function(txt, strict = FALSE) {
 #' Header(c("MY SCRIPT","Part 1"),align="left",h=".")
 Header <- function(txt,h="=",v=h,corner=h,align="center") {
   ## Make a heading with a box for text (can be multiple lines) optional horiz/vert/corner symbols
+  if(is.numeric(txt)) { txt <- paste(txt) }
   if(!is.character(txt)) { stop("txt must be character()") }
   nC <- nchar(txt); align <- tolower(align); if(align!="right" & align!="left") { align <- "center" }
   v <- substr(v,1,1); h <- substr(h,1,1); corner <- substr(corner,1,1)
@@ -1741,11 +1745,13 @@ Rfile.index <- function(fn,below=TRUE,fn.out="out.htm", skip.indent=TRUE)
 #' # not run:  list.functions.in.file(rfile)
 list.functions.in.file <- function(filename,alphabetic=TRUE) {
   # from hrbrmstr, StackExchange 3/1/2015
-  if(!is.file(filename,getwd())) { stop("couldn't find file ",filename) }
+  if(!file.exists(filename)) { stop("couldn't find file ",filename) }
   if(!get.ext(filename)=="R") { warning("expecting *.R file, will try to proceed") }
-  requireNameSpace("dplyr")
+ # requireNameSpace("dplyr")
   tmp <- getParseData(parse(filename, keep.source=TRUE))
-  tmp <- filter(tmp,token=="SYMBOL_FUNCTION_CALL")
+  crit <- quote(token == "SYMBOL_FUNCTION_CALL")
+  tmp <- dplyr::filter(tmp, .dots = crit)
+  #tmp <- dplyr::filter(tmp,token=="SYMBOL_FUNCTION_CALL")
   tmp <- unique(if(alphabetic) { sort(tmp$text) } else { tmp$text })
   src <- paste(as.vector(sapply(tmp, find)))
   outlist <- tapply(tmp,factor(src),c)
