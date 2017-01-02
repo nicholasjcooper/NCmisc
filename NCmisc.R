@@ -1,13 +1,14 @@
 ###NAMESPACE ADDITIONS###
 # Depends: R (>= 2.10), grDevices, graphics, stats, utils, reader
-# Imports: tools, proftools, dplyr
+# Imports: tools, proftools, methods
 # Suggests: KernSmooth, BiocInstaller, Matrix
 # importFrom(proftools, readProfileData, flatProfile)
 # importFrom(tools, toHTML)
 # import(grDevices, graphics, stats, utils)
+# importFrom(methods, is, showMethods)
 ###END NAMESPACE###
 
-# importFrom(dplyr, filter)
+
 
 
 ## add check.bio() to internals list
@@ -1756,14 +1757,17 @@ list.functions.in.file <- function(filename,alphabetic=TRUE) {
   # from hrbrmstr, StackExchange 3/1/2015
   if(!file.exists(filename)) { stop("couldn't find file ",filename) }
   if(!get.ext(filename)=="R") { warning("expecting *.R file, will try to proceed") }
- # requireNameSpace("dplyr")
+  # requireNameSpace("dplyr")
   tmp <- getParseData(parse(filename, keep.source=TRUE))
-  crit <- quote(token == "SYMBOL_FUNCTION_CALL")
-  tmp <- dplyr::filter(tmp, .dots = crit)
+  # next line does what dplyr used to do!
+  nms <- tmp$text[which(tmp$token=="SYMBOL_FUNCTION_CALL")]
+  funs <- unique(if(alphabetic) { sort(nms) } else { nms })
+  #crit <- quote(token == "SYMBOL_FUNCTION_CALL")
+  #tmp <- dplyr::filter(tmp, .dots = crit)
   #tmp <- dplyr::filter(tmp,token=="SYMBOL_FUNCTION_CALL")
-  tmp <- unique(if(alphabetic) { sort(tmp$text) } else { tmp$text })
-  src <- paste(as.vector(sapply(tmp, find)))
-  outlist <- tapply(tmp,factor(src),c)
+  #tmp <- unique(if(alphabetic) { sort(tmp$text) } else { tmp$text })
+  src <- paste(as.vector(sapply(funs, find)))
+  outlist <- tapply(funs, factor(src), c)
   return(outlist)
 }
 
