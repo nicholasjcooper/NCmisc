@@ -1,7 +1,7 @@
 ###NAMESPACE ADDITIONS###
-# Depends: R (>= 2.10), grDevices, graphics, stats, utils, reader
+# Depends: R (>= 3.10), grDevices, graphics, stats, utils
 # Imports: tools, proftools, methods
-# Suggests: KernSmooth, BiocInstaller, Matrix
+# Suggests: KernSmooth, Matrix
 # importFrom(proftools, readProfileData, flatProfile)
 # importFrom(tools, toHTML)
 # import(grDevices, graphics, stats, utils)
@@ -12,7 +12,6 @@
 
 
 ## add check.bio() to internals list
-# no longer want to: importFrom(BiocInstaller, biocVersion)
 
 
 # 7 new not in index - NEW! - 
@@ -113,7 +112,7 @@ comify <- function(x,digits=2) {
 #' or other types coercible using as.numeric()
 #' @return Z scores with the same dimension as the input
 #' @export
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @seealso \code{\link{Z.to.p}}
 #' @examples
 #' p.to.Z(0.0001)
@@ -140,7 +139,7 @@ p.to.Z <- function(p) {
 #' precision limits are exceeded.
 #' @return p-valuues with the same dimension as the input
 #' @export
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @seealso \code{\link{p.to.Z}}
 #' @examples
 #' Z.to.p("1.96")
@@ -575,7 +574,7 @@ loess.scatter <- function(x,y,file=NULL,loess=TRUE,span=0.75,scatter=plot,...,yl
 #' @param n number of unique colours to return
 #' @return returns vector of n colours
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' get.distinct.cols(10)
 #' plot(1:22,pch=19,col=get.distinct.cols(22))
@@ -603,7 +602,7 @@ get.distinct.cols <- function(n=22)
 #'  the base unlist() function would correspond to depth=0
 #' @return returns vectors of strings of char, lengths X
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' complex.list <- list(1,1:3,list(2,2:4,list(3,3:4,list(10))),list(4,5:7,list(3)))
 #' Unlist(complex.list,0) # equivalent to unlist()
@@ -653,7 +652,7 @@ Unlist <- function(obj,depth=1) {
 #' @param X numeric vector to standardize
 #' @return vector of the same length in standardised form
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' x1 <- rnorm(10,100,15); x2 <- sample(10)
 #' print(x1) ;  standardize(x1)
@@ -682,7 +681,7 @@ standardize <- function(X)
 #' @param pc the percentile to seek, c(pc, 1-pc)
 #' @return returns the upper and lower threshold
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' pctile(rnorm(100000),.025)
 #' pctile(sample(100),.9)
@@ -711,7 +710,7 @@ pctile <- function(dat,pc=0.01)
 #'  mac OS X, to turn this on, set to TRUE.
 #' @return returns true or false for each command in 'cmd'
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' check.linux.install("R") # should be standard
 #' check.linux.install(c("perl","sed","fake-cmd"))
@@ -765,7 +764,7 @@ head2 <- function(X,...) { if(length(dim(X))==2) { prv.large(X,...,warn=F) } els
 #' @param ind2 indent character for subsequent level elements
 #' @return prints truncated preview of a large list
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' sub1 <- list(list(1:100),list(2:101),list(101:200),list(201:300),list(301:400))
 #' big.list <- list(sub1,sub1,sub1,sub1,sub1,sub1)
@@ -833,7 +832,7 @@ headl <- function (x, n = 6, skip = 20, skip2 = 10, ind = "", ind2 = "  ")
 #' applied to a vector of any type, whereas 'as.character(...,NA,...)'
 #' avoids this.
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' narm(c(1,2,4,NA,5))
 #' DF <- data.frame(x = c(1, 2, 3), y = c(0, 10, NA))
@@ -907,7 +906,7 @@ toheader <- function(txt, strict = FALSE) {
 #'  e.g, "right", "left", "centre"/"center"
 #' @return returns nothing, simply prints the heading to the console
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' Header("Section 1")
 #' Header("Section 1",h="-",v="|",corner="*")
@@ -943,7 +942,7 @@ Header <- function(txt,h="=",v=h,corner=h,align="center") {
 #' @param char The character to repeat (longer will be shortened)
 #' @return returns vectors of strings of char, lengths X
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @seealso \code{\link{rmv.spc}}
 #' @examples
 #' cat(paste(spc(9),"123\n"))
@@ -968,7 +967,7 @@ spc <- function(X,char=" ") {
 #' @param char an alternative character to be removed instead of spaces
 #' @return returns vectors without the leading/trailing characters
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @seealso \code{\link{spc}}
 #' @examples
 #' rmv.spc("  mid sentence  ")
@@ -976,6 +975,10 @@ spc <- function(X,char=" ") {
 #' rmv.spc(" change nothing ",after=FALSE,before=FALSE)
 rmv.spc <- function(str,before=TRUE,after=TRUE,char=" ") {
   # remove spaces at start and end of string
+  orig <- str
+  str <- str[!is.na(str)]
+  if(length(str)<1) { return(str) }
+  
   if(!is.character(str)) { warning("not a character() type") ; return(str) }
   ch <- substr(paste(char)[1],1,1)
   kk <- (length(str))
@@ -1000,7 +1003,8 @@ rmv.spc <- function(str,before=TRUE,after=TRUE,char=" ") {
       }
     }
   }
-  return(str)
+  orig[!is.na(orig)] <- str
+  return(orig)
 }
 
 
@@ -1032,7 +1036,7 @@ rmv.spc <- function(str,before=TRUE,after=TRUE,char=" ") {
 #' and if add.unit = TRUE, then the result will be character type instead of numeric, with
 #' the units appended.
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' myMatrix <- matrix(rnorm(100),nrow=10)
 #' myVec <- sample(1:1000)
@@ -1122,7 +1126,7 @@ memory.summary <- function(unit=c("kb","mb","gb","b")) {
 #' @param silent print text showing that waiting is in progress
 #' @return no return value
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' wait(.25,silent=FALSE) # wait 0.25 seconds
 #' wait(0.005, "m")
@@ -1164,7 +1168,7 @@ wait <- function(dur,unit="s",silent=TRUE) {
 #'  in that function, including function calls made by that function.
 #'  self.time doesn't count other functions within a function
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' # this function writes and removes a temporary file
 #' # run only if ok to do this in your temporary directory
@@ -1213,7 +1217,7 @@ timeit <- function(expr,suppressResult=F,total.time=TRUE) {
 #' @param unit time units h/m/s if using 'time to go' mode
 #' @return returns nothing, simply prints progress to the console
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' # simple example with a for-loop
 #' max <- 100; for (cc in 1:max) { loop.tracker(cc,max); wait(0.004,"s") }
@@ -1291,7 +1295,7 @@ loop.tracker <- function(cc, max, st.time=NULL,
 #' @param ... additional arguments passed to base::hist()
 #' @return outputs an ascii histogram to the console
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' textogram(runif(100000))
 #' textogram(rnorm(10000),range=c(-3,3))
@@ -1324,7 +1328,7 @@ textogram <- function(X,range=NA,...)
 #' @param numdigits if using numeric data, the number of digits to keep
 #' @return returns the vector in character format with equal nchar()
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' pad.left(1:10)
 #' phone.numbers <- c("07429719234","7876345123","7123543765")
@@ -1361,7 +1365,7 @@ pad.left <- function(X, char=" ", numdigits=NA)
 #'  text or not
 #' @return nothing, simply loads the packages specified if possible
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' # not run : run if you are ok to install/already have these packages
 #' # must.use.package(c("MASS","nlme","lme4"),ask=FALSE)
@@ -1447,14 +1451,12 @@ must.use.package <- function(pcknms,bioC=FALSE,ask=FALSE,reload=FALSE,avail=FALS
 #' @param all.repos logical, if TRUE, then use all available repositories from getRepositories()
 #' @return list of hits for each keyword (txt)
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' repos <- "http://cran.ma.imperial.ac.uk/" # OR: repos <- getOption("repos")
 #' # setRepositories(ind=1:2) # for the session will by default search bioconductor packages too
 #' search.cran("useful",repos)
 #' search.cran(c("hmm","markov","hidden"),repos=repos)
-#' require(BiocInstaller)
-#' search.cran(c("snpStats","genoset","limma"),all.repos=TRUE)
 search.cran <- function(txt,repos="",all.repos=FALSE) {
   goty <- getOption("pkgType"); 
   if(all.repos) {
@@ -1507,9 +1509,8 @@ search.cran <- function(txt,repos="",all.repos=FALSE) {
 #' @return list of repositories with URLS, note that it is the URL that works best for
 #' use for passing a value for 'repos' to various functions.
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
-#' require(BiocInstaller)
 #' repos <- "http://cran.ma.imperial.ac.uk/" # OR: repos <- getOption("repos")
 #' getRepositories(table=TRUE) # shows all available
 #' getRepositories(2:5,FALSE) # returns index for all bioconductor repositories (on my system at least)
@@ -1554,16 +1555,6 @@ getRepositories <- function(ind = NULL,table=FALSE) {
 }
 
 
-# internal
-check.bio <- function() {
-	if("BiocInstaller" %in% installed.packages()) {
-		do.call("require",args=list("BiocInstaller"))
-		return(do.call("biocVersion"))
-	} else {
-		warning("bioconductor does not appear to be installed - this function works better if it is")
-		stop("deliberately throw error for 'tryCatch' to catch")
-	}
-}
 
 
 
@@ -1572,12 +1563,13 @@ tools_read_repositories <- function (file)
 {
   # try to replicate the constant 'tools:::.BioC_version_associated_with_R_version'
   get.bioc.version <- function() {
-    biocVers <- tryCatch({
-      check.bio() # recent BiocInstaller
-    }, error=function(...) {         # no / older BiocInstaller
-      numeric_version(Sys.getenv("R_BIOC_VERSION", "2.13"))
-    })
-    return(biocVers)
+    #biocVers <- tryCatch({
+    #  check.bio() # recent
+    #}, error=function(...) {         # no / older
+    #  numeric_version(Sys.getenv("R_BIOC_VERSION", "2.13"))
+    #})
+    #return(biocVers)
+    return("2.13")
   }
   tools_expand_BioC_repository_URLs <- function (x) 
   {
@@ -1611,7 +1603,7 @@ tools_read_repositories <- function (file)
 #'  values if multi==TRUE and there are more than one. Numeric if x 
 #'  is numeric, else as strings
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' Mode(c(1,2,3,3,4,4)) # 2 values are most common, as multi=FALSE, 
 #' # selects the last value (after sort)
@@ -1672,7 +1664,7 @@ Mode <- function(x,multi=FALSE,warn=FALSE) {
 #' @return creates an html file with name and description of each function
 #' @seealso \code{\link{list.functions.in.file}}
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' # not run:  rfile <- file.choose() # choose an R script file with functions
 #' # not run:  out <- Rfile.index(rfile,fn.out="temp.htm")
@@ -1749,7 +1741,7 @@ Rfile.index <- function(fn,below=TRUE,fn.out="out.htm", skip.indent=TRUE)
 #' functions within functions, or from packages that aren't loaded.
 #' @seealso \code{\link{Rfile.index}}
 #' @export 
-#' @author Nicholas Cooper \email{nick.cooper@@cimr.cam.ac.uk}
+#' @author Nicholas Cooper \email{njcooper@@gmx.co.uk}
 #' @examples
 #' # not run:  rfile <- file.choose() # choose an R script file with functions
 #' # not run:  list.functions.in.file(rfile)
@@ -2775,7 +2767,6 @@ suck.bytes <- function(tot1,GB=TRUE) {
 #' @export
 #' @author Nicholas Cooper 
 #' @examples
-#' require(BiocInstaller)
 #' packages.loaded("NCmisc","reader")
 #' packages.loaded(c("bigpca","nonsenseFailTxt")) # both not found, as second not real
 #' packages.loaded(c("bigpca","nonsenseFailTxt"),cran.check=FALSE) # hide warning
@@ -2904,7 +2895,7 @@ rmv.ext <- function(fn=NULL,only.known=TRUE,more.known=NULL,print.known=FALSE) {
   known.ext <- c("TXT","RDATA","TAB","DAT","CSV","VCF","GCM","BIM","MAP","FAM",
                  "PFB","SH","R","CPP","H","DOC","DOCX","XLS","XLSX","PDF","JPG",
                  "BMP","PNG","TAR","GZ","CNV","PL","PY","ZIP","ORG","RDA","DSC","BCK",
-                 "ABW","HTM","HTML",toupper(more.known))
+                 "ABW","HTM","HTML","JSON","TSV","BAM","ODT","ODS","RDA","JS","JAVA","CLASS",toupper(more.known))
   if(is.null(fn)) { 
     if(print.known) {
       return(known.ext)
