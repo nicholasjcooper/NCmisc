@@ -1745,7 +1745,7 @@ Rfile.index <- function(fn,below=TRUE,fn.out="out.htm", skip.indent=TRUE)
 #' @examples
 #' # not run:  rfile <- file.choose() # choose an R script file with functions
 #' # not run:  list.functions.in.file(rfile)
-list.functions.in.file <- function(filename,alphabetic=TRUE) {
+list.functions.in.file <- function(filename,alphabetic=TRUE, unique= TRUE) {
   # from hrbrmstr, StackExchange 3/1/2015
   if(!file.exists(filename)) { stop("couldn't find file ",filename) }
   if(!get.ext(filename)=="R") { warning("expecting *.R file, will try to proceed") }
@@ -1753,7 +1753,9 @@ list.functions.in.file <- function(filename,alphabetic=TRUE) {
   tmp <- getParseData(parse(filename, keep.source=TRUE))
   # next line does what dplyr used to do!
   nms <- tmp$text[which(tmp$token=="SYMBOL_FUNCTION_CALL")]
-  funs <- unique(if(alphabetic) { sort(nms) } else { nms })
+  funs <- if(alphabetic) { sort(nms) } else { nms }
+  if(unique == T){
+    funs <- unique(funs)}
   #crit <- quote(token == "SYMBOL_FUNCTION_CALL")
   #tmp <- dplyr::filter(tmp, .dots = crit)
   #tmp <- dplyr::filter(tmp,token=="SYMBOL_FUNCTION_CALL")
